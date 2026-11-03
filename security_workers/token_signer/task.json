@@ -1,0 +1,50 @@
+{
+  "id": "token_signer",
+  "title": "Token signer",
+  "cwe": "CWE-798",
+  "summary": "A signing worker ships a development secret in source and accepts forged tokens.",
+  "tags": [
+    "python",
+    "crypto",
+    "secret"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "fallback_literal",
+      "kind": "mutant",
+      "path": "mutants/fallback_literal.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "module_secret",
+      "kind": "mutant",
+      "path": "mutants/module_secret.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

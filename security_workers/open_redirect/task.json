@@ -1,0 +1,50 @@
+{
+  "id": "open_redirect",
+  "title": "Post-login redirect",
+  "cwe": "CWE-601",
+  "summary": "A redirect helper returns the next URL without constraining its host.",
+  "tags": [
+    "python",
+    "redirect",
+    "http"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "path_prefix",
+      "kind": "mutant",
+      "path": "mutants/path_prefix.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "scheme_only",
+      "kind": "mutant",
+      "path": "mutants/scheme_only.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

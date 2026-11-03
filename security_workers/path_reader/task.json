@@ -1,0 +1,50 @@
+{
+  "id": "path_reader",
+  "title": "Sandboxed note reader",
+  "cwe": "CWE-22",
+  "summary": "A file worker joins a user-supplied note name to a sandbox root and reads the result.",
+  "tags": [
+    "python",
+    "filesystem",
+    "path"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "prefix_filter",
+      "kind": "mutant",
+      "path": "mutants/prefix_filter.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "normpath_only",
+      "kind": "mutant",
+      "path": "mutants/normpath_only.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

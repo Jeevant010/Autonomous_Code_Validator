@@ -1,0 +1,50 @@
+{
+  "id": "pickle_loader",
+  "title": "Profile deserializer",
+  "cwe": "CWE-502",
+  "summary": "A profile loader accepts pickle payloads and constructs arbitrary objects.",
+  "tags": [
+    "python",
+    "deserialization",
+    "pickle"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "filtered_pickle",
+      "kind": "mutant",
+      "path": "mutants/filtered_pickle.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "length_guard",
+      "kind": "mutant",
+      "path": "mutants/length_guard.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

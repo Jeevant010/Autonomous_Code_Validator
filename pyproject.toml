@@ -1,0 +1,53 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "autonomous-code-validator"
+version = "0.1.0"
+description = "A two-sided verifier for security changes"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+dependencies = [
+  "bandit>=1.7",
+  "pydantic>=2.8",
+  "pytest>=8.0",
+  "pyyaml>=6.0",
+  "rich>=13.7",
+  "typer>=0.12",
+]
+
+[project.optional-dependencies]
+dev = [
+  "mypy>=1.11",
+  "pytest>=8.0",
+  "pytest-timeout>=2.3",
+  "pytest-xdist>=3.6",
+  "ruff>=0.6",
+  "types-PyYAML>=6.0",
+]
+
+[project.scripts]
+acv = "acv.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/acv"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+exclude = ["security_workers"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.mypy]
+python_version = "3.12"
+strict = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+timeout = 300

@@ -1,0 +1,50 @@
+{
+  "id": "token_random",
+  "title": "Password reset token",
+  "cwe": "CWE-338",
+  "summary": "A reset worker uses the predictable random module to build a security token.",
+  "tags": [
+    "python",
+    "random",
+    "token"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "module_seed",
+      "kind": "mutant",
+      "path": "mutants/module_seed.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "time_seed",
+      "kind": "mutant",
+      "path": "mutants/time_seed.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

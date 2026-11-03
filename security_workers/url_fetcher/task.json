@@ -1,0 +1,50 @@
+{
+  "id": "url_fetcher",
+  "title": "Remote URL fetcher",
+  "cwe": "CWE-918",
+  "summary": "A fetch worker sends a user-supplied URL to urllib without a host allowlist.",
+  "tags": [
+    "python",
+    "http",
+    "ssrf"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "metadata_block",
+      "kind": "mutant",
+      "path": "mutants/metadata_block.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "scheme_only",
+      "kind": "mutant",
+      "path": "mutants/scheme_only.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

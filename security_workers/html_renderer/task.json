@@ -1,0 +1,50 @@
+{
+  "id": "html_renderer",
+  "title": "Comment renderer",
+  "cwe": "CWE-79",
+  "summary": "A renderer interpolates comment text into HTML without escaping.",
+  "tags": [
+    "python",
+    "html",
+    "xss"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "script_filter",
+      "kind": "mutant",
+      "path": "mutants/script_filter.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "quote_escape",
+      "kind": "mutant",
+      "path": "mutants/quote_escape.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

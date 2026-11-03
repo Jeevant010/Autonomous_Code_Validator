@@ -1,0 +1,50 @@
+{
+  "id": "sql_lookup",
+  "title": "User lookup query",
+  "cwe": "CWE-89",
+  "summary": "A SQLite lookup interpolates a username into a query string.",
+  "tags": [
+    "python",
+    "sqlite",
+    "sql"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "backslash_escape",
+      "kind": "mutant",
+      "path": "mutants/backslash_escape.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "string_concat",
+      "kind": "mutant",
+      "path": "mutants/string_concat.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

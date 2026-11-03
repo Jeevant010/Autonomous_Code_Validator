@@ -1,0 +1,50 @@
+{
+  "id": "yaml_loader",
+  "title": "YAML config loader",
+  "cwe": "CWE-94",
+  "summary": "A config loader accepts Python object constructors from an untrusted YAML document.",
+  "tags": [
+    "python",
+    "yaml",
+    "deserialization"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "unsafe_loader",
+      "kind": "mutant",
+      "path": "mutants/unsafe_loader.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "loader_alias",
+      "kind": "mutant",
+      "path": "mutants/loader_alias.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

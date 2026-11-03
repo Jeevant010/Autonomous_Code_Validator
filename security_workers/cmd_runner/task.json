@@ -1,0 +1,50 @@
+{
+  "id": "cmd_runner",
+  "title": "Shell command runner",
+  "cwe": "CWE-78",
+  "summary": "A worker concatenates user input into a shell command. The exploit appends a second command.",
+  "tags": [
+    "python",
+    "injection",
+    "subprocess"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "semicolon_filter",
+      "kind": "mutant",
+      "path": "mutants/semicolon_filter.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "sh_c_filter",
+      "kind": "mutant",
+      "path": "mutants/sh_c_filter.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}
