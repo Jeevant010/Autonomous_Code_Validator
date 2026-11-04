@@ -25,6 +25,7 @@
         <a href="#verdicts">Verdicts</a>
         <a href="#tasks">Tasks</a>
         <a href="#checkers">Checkers</a>
+        <a href="#live">Live</a>
         <a href="#residual">Residual risk</a>
       </nav>
       <span class="status-pill"><span class="status-dot" aria-hidden="true"></span> local audit</span>
@@ -44,7 +45,7 @@
             <a class="button button-secondary" href="#run">Run the audit</a>
           </div>
           <p class="hero-footnote">
-            Offline. Deterministic. Every number below is generated from a real local run.
+            Offline gate. Deterministic verdicts. The live panel adds a real model call on demand.
           </p>
         </div>
 
@@ -205,6 +206,48 @@
             plus the bad variants. Precision is measured on the gold fixes plus the safe variants.
             A high-recall checker can still reject safe code.
           </p>
+        </div>
+      </section>
+
+      <section id="live" class="section live-section">
+        <div class="section-head">
+          <p class="eyebrow">Live reviewer</p>
+          <h2>Ask the model to break the fix.</h2>
+          <p>
+            Pick a candidate and run a real Groq review against the same code the gate saw. The
+            model is a second opinion, not the verdict. The deterministic gate still decides.
+          </p>
+        </div>
+        <div class="live-shell">
+          <div class="live-controls">
+            <div class="live-field">
+              <label for="live-task">Task</label>
+              <select id="live-task"></select>
+            </div>
+            <div class="live-field">
+              <label for="live-candidate">Candidate</label>
+              <select id="live-candidate"></select>
+            </div>
+            <button id="live-run" class="button button-primary" type="button">
+              Run live review
+            </button>
+            <p id="live-status" class="live-status" aria-live="polite">Checking server...</p>
+            <div class="live-key-note">
+              <span class="status-dot" aria-hidden="true"></span>
+              The key stays on the local server. The browser sends task and candidate ids only.
+            </div>
+          </div>
+          <div id="live-result" class="live-result" aria-live="polite">
+            <div class="live-empty">
+              <strong>No review yet.</strong>
+              <span>Start the local app with <code>uv run acv serve</code>, then run a review.</span>
+            </div>
+          </div>
+        </div>
+        <div class="live-note">
+          <strong>Why this is not a mock:</strong> the button calls a local FastAPI endpoint, which
+          sends the candidate source to Groq and runs the exploit, pytest suite, and built-in
+          checker. The result below is the model response and the gate response side by side.
         </div>
       </section>
 

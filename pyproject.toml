@@ -4,18 +4,22 @@ build-backend = "hatchling.build"
 
 [project]
 name = "autonomous-code-validator"
-version = "0.1.0"
+version = "0.2.0"
 description = "A two-sided verifier for security changes"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "MIT" }
 dependencies = [
   "bandit>=1.7",
+  "fastapi>=0.162.0",
+  "httpx>=0.28.1",
   "pydantic>=2.8",
   "pytest>=8.0",
+  "python-dotenv>=1.2.4",
   "pyyaml>=6.0",
   "rich>=13.7",
   "typer>=0.12",
+  "uvicorn>=0.54.0",
 ]
 
 [project.optional-dependencies]

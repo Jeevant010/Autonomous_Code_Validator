@@ -10,8 +10,10 @@ from rich.console import Console
 from rich.table import Table
 
 from . import __version__
+from .llm import GroqError
 from .manifest import discover_tasks
 from .report import aggregate, write_json, write_markdown, write_presentation_data
+from .review import ReviewError, review_by_id
 from .runner import CheckerName, run_audit
 
 app = typer.Typer(
@@ -119,6 +121,79 @@ def audit(
     console.print(f"JSON: {json_path}")
     console.print(f"Markdown: {markdown_path}")
     console.print(f"Presentation data: {data_path}")
+
+
+@app.command()
+def review(
+    task: Annotated[str, typer.Argument(help="Task id, for example cmd_runner.")],
+    candidate: Annotated[str, typer.Argument(help="Candidate name, for example sh_c_filter.")],
+    pack: Annotated[Path, typer.Option("--pack", help="Security pack directory.")] = Path(
+        "security_workers"
+    ),
+    model: Annotated[
+        str | None,
+        typer.Option("--model", help="Override the Groq model."),
+    ] = None,
+    as_json: Annotated[bool, typer.Option("--json", help="Print the full result as JSON.")] = False,
+) -> None:
+    """Run a live model review and compare it with the deterministic gate."""
+    try:
+        result = review_by_id(pack, task, candidate, model=model)
+    except (ReviewError, GroqError) as exc:
+        console.print(f"[red]{exc}[/red]")
+        raise typer.Exit(1) from exc
+
+    if as_json:
+        console.print_json(result.model_dump_json())
+        return
+
+    verdict = result.review.verdict
+    color = "green" if verdict == "likely_fixed" else "red"
+    if verdict not in {"likely_fixed", "likely_vulnerable"}:
+        color = "yellow"
+    gate_match = "unknown" if result.llm_matches_gate is None else (
+        "yes" if result.llm_matches_gate else "no"
+    )
+    truth_match = "unknown" if result.llm_matches_truth is None else (
+        "yes" if result.llm_matches_truth else "no"
+    )
+    table = Table(title=f"Live review: {result.task_id}/{result.candidate}")
+    table.add_column("Signal")
+    table.add_column("Result")
+    table.add_row("AI verdict", f"[{color}]{verdict}[/{color}]")
+    table.add_row("Confidence", f"{result.review.confidence:.0%}")
+    table.add_row("Gate accepted", "yes" if result.deterministic.accepted else "no")
+    table.add_row("Ground truth", "accept" if result.deterministic.expected_accepted else "reject")
+    table.add_row("AI matches gate", gate_match)
+    table.add_row("AI matches truth", truth_match)
+    table.add_row("Model", result.model)
+    table.add_row("Latency", f"{result.latency_ms} ms")
+    table.add_row("Tokens", str(result.usage.total_tokens))
+    console.print(table)
+    console.print(result.review.summary)
+    if result.review.attack_path:
+        console.print(f"\n[bold]Attack path[/bold]\n{result.review.attack_path}")
+    if result.review.findings:
+        console.print("\n[bold]Findings[/bold]")
+        for finding in result.review.findings:
+            line = f" line {finding.line}" if finding.line else ""
+            console.print(
+                f"  [bold]{finding.severity.upper()}[/bold] "
+                f"{finding.cwe}{line}: {finding.issue}"
+            )
+
+
+@app.command()
+def serve(
+    host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
+    port: Annotated[int, typer.Option("--port", help="Port for the local app.")] = 8000,
+) -> None:
+    """Serve the presentation and the live review API."""
+    import uvicorn
+
+    console.print(f"[bold]Live review:[/bold] http://{host}:{port}")
+    console.print("[dim]The Groq key stays on the server. The browser never sees it.[/dim]")
+    uvicorn.run("acv.server:app", host=host, port=port, reload=False)
 
 
 def main() -> None:

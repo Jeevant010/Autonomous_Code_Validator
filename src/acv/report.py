@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from . import __version__
 from .models import CandidateResult, TaskResult
 
 
@@ -125,7 +126,7 @@ def build_payload(results: list[TaskResult]) -> dict[str, Any]:
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "product": "Autonomous Code Validator",
-        "version": "0.1.0",
+        "version": __version__,
         "summary": summary,
         "tasks": _result_dicts(results),
     }

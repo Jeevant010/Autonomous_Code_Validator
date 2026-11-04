@@ -242,4 +242,209 @@
       ? residual.map(residualCard).join("")
       : `<article class="residual-card"><div class="residual-kicker">No residual cases</div><h3>The gate and ground truth agreed on every candidate.</h3><p>Add a new mutant or a new checker to make the next gap visible.</p></article>`;
   }
+
+  // Live reviewer.
+  const liveTask = byId("live-task");
+  const liveCandidate = byId("live-candidate");
+  const liveRun = byId("live-run");
+  const liveStatus = byId("live-status");
+  const liveResult = byId("live-result");
+
+  const setLiveStatus = (text, state = "") => {
+    if (!liveStatus) return;
+    liveStatus.textContent = text;
+    liveStatus.classList.remove("is-ready", "is-error");
+    if (state) liveStatus.classList.add(state);
+  };
+
+  const verdictLabel = (verdict) =>
+    ({
+      likely_fixed: "likely fixed",
+      likely_vulnerable: "likely vulnerable",
+      incomplete: "incomplete",
+      uncertain: "uncertain",
+    })[verdict] || verdict;
+
+  const verdictClass = (verdict) =>
+    verdict === "likely_fixed"
+      ? "is-good"
+      : verdict === "likely_vulnerable"
+        ? "is-bad"
+        : "is-warn";
+
+  const liveFinding = (finding) => {
+    const severity = String(finding.severity || "info");
+    const severityClass =
+      severity === "high" ? "is-high" : severity === "medium" ? "is-medium" : "";
+    const line = finding.line ? ` line ${escapeHtml(finding.line)}` : "";
+    return `
+      <article class="live-finding">
+        <div class="live-finding-top">
+          <span class="severity ${severityClass}">${escapeHtml(severity)}</span>
+          <span class="live-kicker">${escapeHtml(finding.cwe || "unclassified")}${line}</span>
+        </div>
+        <strong>${escapeHtml(finding.issue || "Issue")}</strong>
+        ${finding.evidence ? `<p>${escapeHtml(finding.evidence)}</p>` : ""}
+        ${finding.recommendation ? `<p><strong>Fix:</strong> ${escapeHtml(finding.recommendation)}</p>` : ""}
+      </article>`;
+  };
+
+  const renderLiveResult = (result) => {
+    const review = result.review || {};
+    const deterministic = result.deterministic || {};
+    const findings = Array.isArray(review.findings) ? review.findings : [];
+    const gaps = Array.isArray(review.test_gaps) ? review.test_gaps : [];
+    const agreement = result.llm_matches_gate;
+    const agreementClass =
+      agreement === true ? "is-good" : agreement === false ? "is-bad" : "";
+    const agreementText =
+      agreement === true
+        ? "The model agrees with the gate."
+        : agreement === false
+          ? "The model disagrees with the gate. Inspect this candidate."
+          : "The model is uncertain. The gate remains the decision.";
+    const truthText =
+      result.llm_matches_truth === true
+        ? "matches ground truth"
+        : result.llm_matches_truth === false
+          ? "misses ground truth"
+          : "ground truth not comparable";
+    const attack = String(review.attack_path || "").trim();
+    const summary = String(review.summary || "").trim();
+    const reasoning = String(review.reasoning || "").trim();
+    const gateReasons = Array.isArray(deterministic.reasons)
+      ? deterministic.reasons.join("; ")
+      : "";
+
+    liveResult.innerHTML = `
+      <div class="live-result-head">
+        <div>
+          <span class="live-kicker">${escapeHtml(result.task_id)} / ${escapeHtml(result.candidate)}</span>
+          <h3>${escapeHtml(result.task_title)}</h3>
+        </div>
+        <span class="verdict-pill ${verdictClass(review.verdict)}">${escapeHtml(
+          verdictLabel(review.verdict),
+        )}</span>
+      </div>
+      <p class="live-summary">${escapeHtml(summary || "The model returned no summary.")}</p>
+      <div class="live-meta">
+        <div><span>Confidence</span><strong>${pct(review.confidence ?? 0)}</strong></div>
+        <div><span>Gate</span><strong>${deterministic.accepted ? "accepted" : "rejected"}</strong></div>
+        <div><span>Ground truth</span><strong>${deterministic.expected_accepted ? "accept" : "reject"} / ${escapeHtml(truthText)}</strong></div>
+        <div><span>Model / latency</span><strong>${escapeHtml(result.model)} / ${number(
+          result.latency_ms,
+        )} ms</strong></div>
+      </div>
+      <div class="live-agreement ${agreementClass}">
+        <strong>${escapeHtml(agreementText)}</strong>
+        ${gateReasons ? `<span> Gate: ${escapeHtml(gateReasons)}.</span>` : ""}
+      </div>
+      ${
+        attack
+          ? `<div class="live-block"><h4>Attack path</h4><p>${escapeHtml(attack)}</p></div>`
+          : ""
+      }
+      <div class="live-block">
+        <h4>Findings</h4>
+        ${findings.length ? findings.map(liveFinding).join("") : "<p>No finding returned.</p>"}
+      </div>
+      ${
+        gaps.length
+          ? `<div class="live-block"><h4>Test gaps</h4><ul class="live-test-gaps">${gaps
+              .map((gap) => `<li>${escapeHtml(gap)}</li>`)
+              .join("")}</ul></div>`
+          : ""
+      }
+      ${
+        reasoning
+          ? `<div class="live-block"><h4>Reasoning</h4><p>${escapeHtml(reasoning)}</p></div>`
+          : ""
+      }
+      <div class="live-block">
+        <h4>Gate evidence</h4>
+        <p>${escapeHtml(gateReasons || "The deterministic gate produced no extra reason.")}</p>
+      </div>`;
+  };
+
+  if (liveTask && liveCandidate && liveRun && liveStatus && liveResult) {
+    const taskById = new Map(tasks.map((task) => [task.task_id, task]));
+
+    const fillCandidates = () => {
+      const task = taskById.get(liveTask.value);
+      liveCandidate.innerHTML = "";
+      if (!task) return;
+      (task.candidates || []).forEach((candidate) => {
+        const option = document.createElement("option");
+        option.value = candidate.name;
+        option.textContent = `${candidate.name} [${candidate.kind}]`;
+        liveCandidate.append(option);
+      });
+    };
+
+    tasks.forEach((task) => {
+      const option = document.createElement("option");
+      option.value = task.task_id;
+      option.textContent = `${task.title} [${task.task_id}]`;
+      liveTask.append(option);
+    });
+    liveTask.addEventListener("change", fillCandidates);
+    fillCandidates();
+
+    const initLive = async () => {
+      if (window.location.protocol === "file:") {
+        setLiveStatus("Open the local server with `uv run acv serve`.", "is-error");
+        liveTask.disabled = true;
+        liveCandidate.disabled = true;
+        liveRun.disabled = true;
+        return;
+      }
+      try {
+        const response = await fetch("/api/health");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const health = await response.json();
+        if (!health.key_configured) {
+          setLiveStatus("Server is up, but GROQ_API_KEY is missing.", "is-error");
+          liveRun.disabled = true;
+          return;
+        }
+        setLiveStatus(`Live / ${health.model} / ${health.tasks} tasks`, "is-ready");
+      } catch {
+        setLiveStatus("Live server is not reachable. Start `uv run acv serve`.", "is-error");
+        liveTask.disabled = true;
+        liveCandidate.disabled = true;
+        liveRun.disabled = true;
+      }
+    };
+
+    liveRun.addEventListener("click", async () => {
+      liveRun.disabled = true;
+      liveRun.textContent = "Reviewing...";
+      setLiveStatus("Calling Groq and running the deterministic gate...");
+      try {
+        const response = await fetch("/api/review", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            task_id: liveTask.value,
+            candidate: liveCandidate.value,
+          }),
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(payload.detail || `HTTP ${response.status}`);
+        renderLiveResult(payload);
+        setLiveStatus(`Reviewed in ${payload.latency_ms} ms`, "is-ready");
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        liveResult.innerHTML = `<div class="live-empty"><strong>Review failed.</strong><span>${escapeHtml(
+          message,
+        )}</span></div>`;
+        setLiveStatus("Review failed. Check the server log.", "is-error");
+      } finally {
+        liveRun.disabled = false;
+        liveRun.textContent = "Run live review";
+      }
+    });
+
+    initLive();
+  }
 })();
