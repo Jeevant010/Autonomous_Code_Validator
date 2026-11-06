@@ -1,4 +1,4 @@
-.PHONY: sync test lint format audit demo
+.PHONY: sync test lint format audit demo list show verify serve
 
 sync:
 	uv sync --all-extras
@@ -11,11 +11,22 @@ lint:
 	uv run mypy src
 
 format:
-	uv run ruff format src tests scripts
-	uv run ruff check --fix src tests scripts
+	uv run ruff format src tests
+	uv run ruff check --fix src tests
 
 audit:
 	uv run acv audit
 
-demo: sync audit
-	@echo "Open presentation/index.html"
+list:
+	uv run acv list
+
+show:
+	uv run acv show cmd_runner
+
+verify:
+	uv run acv verify cmd_runner semicolon_filter
+
+serve:
+	uv run acv serve
+
+demo: sync list show verify

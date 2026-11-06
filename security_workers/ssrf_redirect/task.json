@@ -1,0 +1,51 @@
+{
+  "id": "ssrf_redirect",
+  "title": "Redirecting URL fetcher",
+  "cwe": "CWE-918",
+  "summary": "A fetcher validates the first URL against a host allowlist but follows redirects without rechecking the destination.",
+  "tags": [
+    "python",
+    "http",
+    "ssrf",
+    "redirect"
+  ],
+  "vulnerable": "vulnerable/worker.py",
+  "fixed": "fixed/worker.py",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign/worker.py",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "initial_only",
+      "kind": "mutant",
+      "path": "mutants/initial_only.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    },
+    {
+      "name": "scheme_only",
+      "kind": "mutant",
+      "path": "mutants/scheme_only.py",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": ""
+    }
+  ]
+}

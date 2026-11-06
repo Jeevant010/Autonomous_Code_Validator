@@ -11,7 +11,7 @@ import httpx
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, ValidationError, field_validator
 
-DEFAULT_MODEL = "openai/gpt-oss-120b"
+DEFAULT_MODEL = "qwen/qwen3.8-27b"
 DEFAULT_BASE_URL = "https://api.groq.com/openai/v1"
 
 

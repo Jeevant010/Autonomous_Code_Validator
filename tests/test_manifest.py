@@ -11,10 +11,10 @@ ROOT = Path(__file__).resolve().parents[1]
 PACK = ROOT / "security_workers"
 
 
-def test_pack_has_ten_tasks() -> None:
+def test_pack_has_expected_tasks() -> None:
     tasks = discover_tasks(PACK)
-    assert len(tasks) == 10
-    assert len({task.task_id for task in tasks}) == 10
+    assert len(tasks) == 11
+    assert len({task.task_id for task in tasks}) == 11
     assert all(len(task.candidates) == 4 for task in tasks)
 
 

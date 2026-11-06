@@ -9,14 +9,12 @@ import os
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
-from fastapi.staticfiles import StaticFiles
 
 from . import __version__
-from .llm import GroqClient, GroqError
+from .llm import DEFAULT_MODEL, GroqClient, GroqError
 from .review import ReviewError, ReviewRequest, ReviewResult, review_by_id, task_catalog
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-PRESENTATION_DIR = PROJECT_ROOT / "presentation"
 PACK_ROOT = Path(os.environ.get("ACV_PACK", str(PROJECT_ROOT / "security_workers")))
 
 app = FastAPI(
@@ -24,6 +22,21 @@ app = FastAPI(
     version=__version__,
     description="Deterministic gate plus a live model reviewer.",
 )
+
+
+@app.get("/")
+def index() -> dict[str, object]:
+    """Return a small API index instead of serving a static page."""
+    return {
+        "name": "Autonomous Code Validator",
+        "version": __version__,
+        "docs": "/docs",
+        "endpoints": {
+            "health": "GET /api/health",
+            "tasks": "GET /api/tasks",
+            "review": "POST /api/review",
+        },
+    }
 
 
 @app.get("/api/health")
@@ -37,7 +50,7 @@ def health() -> dict[str, object]:
     return {
         "ok": True,
         "provider": "groq",
-        "model": os.environ.get("ACV_LLM_MODEL", "openai/gpt-oss-120b"),
+        "model": os.environ.get("ACV_LLM_MODEL", DEFAULT_MODEL),
         "key_configured": GroqClient.is_configured(),
         "tasks": task_count,
         "version": __version__,
@@ -67,11 +80,3 @@ def review(request: ReviewRequest) -> ReviewResult:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except GroqError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
-
-
-# Mount the static presentation last so /api routes win.
-app.mount(
-    "/",
-    StaticFiles(directory=str(PRESENTATION_DIR), html=True),
-    name="presentation",
-)
