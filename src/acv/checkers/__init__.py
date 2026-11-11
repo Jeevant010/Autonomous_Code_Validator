@@ -1,12 +1,30 @@
 """Checker adapters.
 
 The verifier treats every checker the same way: it consumes a candidate file and
-returns normalized findings. The built-in rule pack is deterministic and works
-offline. Bandit is an optional comparison point that is installed with the
-project because it is small and useful.
+returns normalized findings. Checkers are registered in ``registry`` so the
+qualification harness can compare their detection quality.
 """
 
 from .bandit_adapter import run_bandit
 from .builtin import BuiltinChecker
+from .registry import (
+    CheckerAdapter,
+    CheckerCategory,
+    checker_adapters,
+    get_adapter,
+    run_builtin,
+    select_adapters,
+)
+from .semgrep_adapter import run_semgrep
 
-__all__ = ["BuiltinChecker", "run_bandit"]
+__all__ = [
+    "BuiltinChecker",
+    "CheckerAdapter",
+    "CheckerCategory",
+    "checker_adapters",
+    "get_adapter",
+    "run_bandit",
+    "run_builtin",
+    "run_semgrep",
+    "select_adapters",
+]
