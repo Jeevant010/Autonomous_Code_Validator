@@ -1,4 +1,4 @@
-.PHONY: sync test lint format audit demo list show verify serve
+.PHONY: sync test lint format audit demo list show verify tools qualify serve
 
 sync:
 	uv sync --all-extras
@@ -26,7 +26,13 @@ show:
 verify:
 	uv run acv verify cmd_runner semicolon_filter
 
+tools:
+	uv run acv tools
+
+qualify:
+	uv run acv qualify
+
 serve:
 	uv run acv serve
 
-demo: sync list show verify
+demo: sync list show verify tools
