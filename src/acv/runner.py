@@ -10,7 +10,7 @@ import tempfile
 from pathlib import Path
 from typing import Literal
 
-from .checkers import BuiltinChecker, run_bandit
+from .checkers import CheckerAdapter, checker_adapters
 from .manifest import discover_tasks
 from .models import (
     CandidateManifest,
@@ -20,7 +20,7 @@ from .models import (
     TaskSpec,
 )
 
-CheckerName = Literal["acv-rules", "bandit"]
+CheckerName = Literal["acv-rules", "bandit", "semgrep"]
 
 
 def _run(command: list[str], cwd: Path, env: dict[str, str], timeout: int) -> tuple[int, str]:
@@ -90,16 +90,8 @@ def run_functional(task: TaskSpec, candidate: Path, timeout: int = 60) -> tuple[
 
 
 def run_checkers(candidate: Path) -> dict[str, CheckerResult]:
-    rules = BuiltinChecker()
-    return {
-        "acv-rules": CheckerResult(
-            tool="acv-rules",
-            available=True,
-            findings=rules.scan(candidate),
-            version=rules.version,
-        ),
-        "bandit": run_bandit(candidate),
-    }
+    adapters: tuple[CheckerAdapter, ...] = checker_adapters()
+    return {adapter.name: adapter.run(candidate) for adapter in adapters}
 
 
 def evaluate_candidate(
@@ -167,7 +159,7 @@ def _checker_summary(
     fixed_checks: dict[str, CheckerResult],
 ) -> dict[str, dict[str, float | int | str | bool]]:
     summary: dict[str, dict[str, float | int | str | bool]] = {}
-    for name in ("acv-rules", "bandit"):
+    for name in vulnerable_checks:
         vulnerable = vulnerable_checks.get(name)
         fixed = fixed_checks.get(name)
         if vulnerable is None or fixed is None:
