@@ -14,11 +14,17 @@ from rich.syntax import Syntax
 from rich.table import Table
 
 from . import __version__
+from .checkers import checker_adapters
 from .llm import GroqError
 from .manifest import discover_tasks, load_task
 from .report import aggregate, write_json, write_markdown
 from .review import ReviewError, find_candidate, review_by_id
 from .runner import CheckerName, evaluate_candidate, run_audit
+from .toolbench import (
+    evaluate_checkers,
+    write_qualification_json,
+    write_qualification_markdown,
+)
 
 app = typer.Typer(
     name="acv",
@@ -29,8 +35,8 @@ console = Console()
 
 
 def _checker(value: str) -> CheckerName:
-    if value not in {"acv-rules", "bandit"}:
-        raise typer.BadParameter("checker must be acv-rules or bandit")
+    if value not in {"acv-rules", "bandit", "semgrep"}:
+        raise typer.BadParameter("checker must be acv-rules, bandit, or semgrep")
     return value  # type: ignore[return-value]
 
 
@@ -41,10 +47,139 @@ def _relative(path: Path) -> str:
         return str(path)
 
 
+def _pct(value: float) -> str:
+    return f"{value * 100:.1f}%"
+
+
 @app.command()
 def version() -> None:
     """Print the validator version."""
     console.print(f"Autonomous Code Validator {__version__}")
+
+
+@app.command("tools")
+def list_tools() -> None:
+    """List checker adapters and whether they are installed."""
+    table = Table(title="Checker adapters")
+    table.add_column("Tool")
+    table.add_column("Category")
+    table.add_column("Languages", overflow="fold")
+    table.add_column("Installed")
+    table.add_column("Version")
+    table.add_column("Description", overflow="fold")
+    for adapter in checker_adapters():
+        table.add_row(
+            adapter.name,
+            adapter.category,
+            ", ".join(adapter.languages),
+            "yes" if adapter.available else "no",
+            adapter.version or "-",
+            adapter.description,
+        )
+    console.print(table)
+    console.print("[dim]Measure them on the labeled pack: uv run acv qualify[/dim]")
+
+
+@app.command()
+def qualify(
+    pack: Annotated[Path, typer.Option("--pack", help="Security pack directory.")] = Path(
+        "security_workers"
+    ),
+    checker: Annotated[
+        list[str] | None,
+        typer.Option("--checker", help="Only qualify these adapters. Repeat the option."),
+    ] = None,
+    json_path: Annotated[
+        Path,
+        typer.Option("--json", help="Where to write the full qualification payload."),
+    ] = Path("reports/checkers.json"),
+    markdown_path: Annotated[
+        Path,
+        typer.Option("--markdown", help="Where to write the human-readable leaderboard."),
+    ] = Path("reports/checkers.md"),
+) -> None:
+    """Measure checker recall, false positives, and runtime on the labeled pack."""
+    names = set(checker) if checker else None
+    try:
+        scores = evaluate_checkers(pack, names)
+    except KeyError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+
+    table = Table(title="Checker qualification")
+    table.add_column("Tool")
+    table.add_column("Available")
+    table.add_column("TP", justify="right")
+    table.add_column("FP", justify="right")
+    table.add_column("FN", justify="right")
+    table.add_column("TN", justify="right")
+    table.add_column("Precision", justify="right")
+    table.add_column("Recall", justify="right")
+    table.add_column("F1", justify="right")
+    table.add_column("Runtime", justify="right")
+
+    for score in scores:
+        if not score.available:
+            table.add_row(
+                score.tool,
+                "no",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                "-",
+                score.error or "unavailable",
+            )
+            continue
+        positives = score.tp + score.fn
+        table.add_row(
+            score.tool,
+            "yes",
+            f"{score.tp}/{positives}",
+            str(score.fp),
+            str(score.fn),
+            str(score.tn),
+            _pct(score.precision),
+            _pct(score.recall),
+            _pct(score.f1),
+            f"{score.runtime_ms} ms",
+        )
+    console.print(table)
+
+    false_negatives = [
+        (score.tool, sample)
+        for score in scores
+        for sample in score.false_negatives
+    ]
+    if false_negatives:
+        misses = Table(title="False negatives: vulnerable files the checker missed")
+        misses.add_column("Tool")
+        misses.add_column("Sample", overflow="fold")
+        for tool, sample in false_negatives:
+            misses.add_row(tool, sample)
+        console.print(misses)
+
+    false_positives = [
+        (score.tool, sample)
+        for score in scores
+        for sample in score.false_positives
+    ]
+    if false_positives:
+        noise = Table(title="False positives: safe files the checker flagged")
+        noise.add_column("Tool")
+        noise.add_column("Sample", overflow="fold")
+        for tool, sample in false_positives:
+            noise.add_row(tool, sample)
+        console.print(noise)
+
+    write_qualification_json(json_path, scores)
+    write_qualification_markdown(markdown_path, scores)
+    console.print(f"JSON: {json_path}")
+    console.print(f"Markdown: {markdown_path}")
+    console.print(
+        "[dim]Dynamic gate: run `uv run acv audit` for exploit and test verification.[/dim]"
+    )
 
 
 @app.command("list")
