@@ -23,6 +23,90 @@ uv run ruff check .
 uv run mypy src
 ```
 
+## Five-minute demo
+
+Run the failure case first, then the fixed case. That is the story.
+
+```bash
+uv run acv list
+uv run acv tools
+uv run acv qualify --checker acv-rules --checker bandit
+uv run acv show ssrf_redirect --candidate initial_only
+uv run acv verify ssrf_redirect initial_only
+uv run acv verify ssrf_redirect gold
+uv run acv audit
+```
+
+What each step proves:
+
+| Step | What to say |
+| :--- | :--- |
+| `acv list` | The vulnerable targets are real files, not hidden behind a deck |
+| `acv tools` | We know which checkers are installed and usable |
+| `acv qualify` | We measured each checker instead of trusting it |
+| `acv show` | The exploit, vulnerable code, and functional test are visible |
+| `acv verify initial_only` | The static checker misses it, but the exploit catches it |
+| `acv verify gold` | A real fix is accepted only when exploit, behavior, and checker agree |
+| `acv audit` | The whole corpus is scored, including false passes and false rejections |
+
+For the model review, add:
+
+```bash
+uv run acv review ssrf_redirect initial_only
+uv run acv review ssrf_redirect gold
+```
+
+The deterministic demo needs no API key. The model path needs `GROQ_API_KEY` in `.env`.
+
+## Adding a checker
+
+Add a file under `src/acv/checkers/` that returns the common `CheckerResult` shape:
+
+```python
+from pathlib import Path
+
+from ..models import CheckerResult, CheckFinding
+
+def run_my_tool(path: Path) -> CheckerResult:
+    # Run the real tool, parse its JSON, and normalize each finding.
+    return CheckerResult(
+        tool="my-tool",
+        available=True,
+        findings=[
+            CheckFinding(
+                rule_id="MY001",
+                cwe="CWE-78",
+                severity="high",
+                message="command injection",
+                line=12,
+            )
+        ],
+    )
+```
+
+Register it in `src/acv/checkers/registry.py`:
+
+```python
+CheckerAdapter(
+    name="my-tool",
+    category="sast",
+    languages=("python",),
+    description="My checker",
+    run=run_my_tool,
+    available=shutil.which("my-tool") is not None,
+)
+```
+
+Then it automatically appears in:
+
+```bash
+uv run acv tools
+uv run acv qualify
+uv run acv audit
+```
+
+The current adapter interface is **file-level**. Dependency scanners, IaC scanners, container scanners, CodeQL, and DAST need a project-level or service-level adapter; that is the next interface to add.
+
 ## Where the vulnerable code actually is
 
 Every task lives in `security_workers/<task>/`:
@@ -95,12 +179,15 @@ assert run_echo("hello") == "hello\n"
 
 | File | Job |
 | :--- | :--- |
-| `src/acv/cli.py` | Commands: `list`, `show`, `verify`, `review`, `audit`, `serve` |
+| `src/acv/cli.py` | Commands: `list`, `show`, `verify`, `review`, `audit`, `tools`, `qualify`, `serve` |
 | `src/acv/manifest.py` | Loads and validates `task.json`; rejects path escapes |
 | `src/acv/models.py` | Typed records for tasks, candidates, findings, results |
 | `src/acv/runner.py` | Copies a candidate to a temp dir, runs the exploit, pytest, and checkers |
+| `src/acv/toolbench.py` | Scores checkers on the labeled pack: precision, recall, false misses, runtime |
+| `src/acv/checkers/registry.py` | Registers every checker through one adapter interface |
 | `src/acv/checkers/builtin.py` | Small deterministic rule pack; no network or external service |
-| `src/acv/checkers/bandit_adapter.py` | Optional Bandit adapter; reports unavailable if Bandit is absent |
+| `src/acv/checkers/bandit_adapter.py` | Bandit adapter; reports unavailable if Bandit is absent |
+| `src/acv/checkers/semgrep_adapter.py` | Optional Semgrep adapter with normalized JSON findings |
 | `src/acv/review.py` | Builds the model prompt, calls the model, compares with the gate |
 | `src/acv/llm/groq.py` | Groq client and structured review schema |
 | `src/acv/server.py` | JSON API only; no static presentation |
@@ -109,6 +196,46 @@ assert run_echo("hello") == "hello\n"
 
 `bandit_adapter.py` is not a fake checker. It runs the real `bandit` command when installed.
 The built-in `acv-rules` checker is the offline fallback.
+
+## Tool qualification: measure a checker before trusting it
+
+The first step is not “use the best tool.” It is “prove a tool works on labeled data.”
+
+```bash
+uv run acv tools
+uv run acv qualify
+```
+
+`acv tools` lists every registered adapter and whether it is installed. `acv qualify` runs each
+checker over the labeled corpus:
+
+- positives: the vulnerable implementation and known-bad mutants
+- negatives: the gold fix and the benign safe implementation
+
+It reports true positives, false positives, false negatives, true negatives, precision, recall,
+F1, runtime, and the exact missed samples. It writes:
+
+```text
+reports/checkers.json
+reports/checkers.md
+```
+
+On the current 11-task corpus:
+
+| Tool | Available | TP | FP | FN | TN | Precision | Recall | F1 | Runtime |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| `acv-rules` | yes | 28 | 1 | 5 | 21 | 96.6% | 84.8% | 90.3% | 42 ms |
+| `bandit` | yes | 17 | 3 | 16 | 19 | 85.0% | 51.5% | 64.2% | 7,628 ms |
+| `semgrep` | no | - | - | - | - | - | - | - | not installed |
+
+This does **not** mean `acv-rules` is the best checker in the world. It is tuned to this corpus, so
+the number is optimistic. The important result is the misses: `acv-rules` misses
+`ssrf_redirect/initial_only`, `cmd_runner/sh_c_filter`, and three other known-bad variants. Bandit
+misses many more. That is exactly why the dynamic exploit gate is still the authority.
+
+The next qualification step is ensemble scoring: measure `union` (any tool flags) and
+`intersection` (all tools agree) so we can see the recall/precision trade-off before adding more
+tools.
 
 ## Commands
 
@@ -178,11 +305,46 @@ For each candidate, `runner.py`:
 2. Copies the candidate in as `worker.py`.
 3. Runs `poc/exploit.py` against it.
 4. Runs `tests/test_functional.py` against it.
-5. Runs the built-in checker and, if available, Bandit.
+5. Runs the built-in checker and every available registry adapter.
 6. Accepts only when the exploit is blocked, behavior passes, and the checker is quiet.
 
 The model review runs after the candidate source is loaded. It sees the vulnerable code, the
 exploit, the functional test, and the candidate. It does not see the expected verdict.
+
+## Repair mapping: from finding to verified fix
+
+Detection is only half the system. The repair side needs a mapping with evidence, not a free-form
+“here is a patch” answer.
+
+For every finding, create a repair record:
+
+```text
+finding -> vulnerable file + line + CWE
+        -> candidate fixes (gold, benign, model-generated)
+        -> apply fix in a temporary worktree
+        -> run functional tests
+        -> run the exploit/PoC
+        -> re-run the checkers
+        -> run differential behavior checks
+        -> accept only if every signal agrees
+```
+
+The repair gate is the same deterministic gate, with one addition: the fixer must not be allowed
+to edit the tests or the exploit to make itself pass. Those files are part of the oracle, not the
+candidate.
+
+The repair loop should be:
+
+1. **Locate** the source-to-sink path.
+2. **Propose** the smallest fix.
+3. **Apply** it to an isolated copy.
+4. **Prove** the exploit is blocked.
+5. **Prove** the functional tests still pass.
+6. **Re-scan** to confirm the finding is gone.
+7. **Reject** if the fix is only an input filter for the test case.
+
+This is not implemented as a CLI command yet. `acv verify <task> <candidate>` is the manual version
+of the same gate.
 
 ## Hard network cases to add next
 
@@ -241,7 +403,10 @@ the calibration pack a real-world benchmark.
 ## Current limits
 
 - The task pack is synthetic and small.
+- Checker scores are optimistic because the corpus is tuned to the built-in rules.
+- There is no ensemble scoring yet (union/intersection of tools).
 - There is no real Git patch input yet (`acv verify --patch`).
+- There is no automated repair loop yet; repair mapping is documented, not implemented.
 - There is no hardened sandbox; execution uses a temporary directory.
 - There is no SARIF normalizer, PR comment, or CI gate yet.
 - The model review is advisory and can be wrong.
@@ -249,9 +414,10 @@ the calibration pack a real-world benchmark.
 
 ## Next implementation order
 
-1. Add `acv verify --patch change.diff` for real diffs.
-2. Add a Semgrep adapter and SARIF normalization.
-3. Parse structured pytest JSON instead of text.
-4. Run untrusted code in Docker or gVisor.
-5. Add a CI gate and PR comment.
-6. Add external benchmark adapters (OWASP Benchmark, Vul4J, CVE-bench).
+1. Add ensemble scoring: union/intersection recall and precision.
+2. Add `acv repair --finding <id>` and `acv verify --patch change.diff`.
+3. Add adapters for secrets, dependencies, IaC, containers, and DAST.
+4. Add SARIF normalization and a CI gate.
+5. Parse structured pytest JSON instead of text.
+6. Run untrusted code in Docker or gVisor.
+7. Add external benchmark adapters (OWASP Benchmark, Vul4J, CVE-bench).
