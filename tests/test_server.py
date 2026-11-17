@@ -60,3 +60,113 @@ def test_review_endpoint(monkeypatch) -> None:
     payload = response.json()
     assert payload["review"]["verdict"] == "likely_vulnerable"
     assert payload["llm_matches_gate"] is False
+
+
+def test_root_serves_research_console() -> None:
+    client = TestClient(server.app)
+    response = client.get("/")
+    assert response.status_code == 200
+    assert "ACV" in response.text
+    assert "patch verifier" in response.text
+    assert "/static/app.js" in response.text
+
+
+def test_static_assets_are_mounted() -> None:
+    client = TestClient(server.app)
+    assert client.get("/static/app.js").status_code == 200
+    assert client.get("/static/styles.css").status_code == 200
+
+
+def test_task_detail_endpoint() -> None:
+    client = TestClient(server.app)
+    response = client.get("/api/tasks/cmd_runner")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["task_id"] == "cmd_runner"
+    assert "shell=True" in payload["code"]["vulnerable"]
+    assert len(payload["candidates"]) >= 3
+    assert all("code" in candidate for candidate in payload["candidates"])
+
+
+def test_verify_endpoint_runs_the_gate() -> None:
+    client = TestClient(server.app)
+    response = client.post(
+        "/api/verify",
+        json={"task_id": "cmd_runner", "candidate": "gold", "checker": "acv-rules"},
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["accepted"] is True
+    assert payload["correct"] is True
+    assert payload["poc_exit"] == 1
+    assert payload["behavior_exit"] == 0
+
+
+def test_verify_code_endpoint_accepts_supplied_source() -> None:
+    client = TestClient(server.app)
+    detail = client.get("/api/tasks/cmd_runner").json()
+    gold = next(candidate for candidate in detail["candidates"] if candidate["name"] == "gold")
+    response = client.post(
+        "/api/verify-code",
+        json={
+            "task_id": "cmd_runner",
+            "code": gold["code"],
+            "checker": "acv-rules",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["accepted"] is True
+    assert payload["security_pass"] is True
+    assert payload["checker_pass"] is True
+    assert payload["elapsed_ms"] >= 0
+
+
+def test_verify_code_endpoint_rejects_still_vulnerable_source() -> None:
+    client = TestClient(server.app)
+    detail = client.get("/api/tasks/ssrf_redirect").json()
+    initial = next(
+        candidate for candidate in detail["candidates"] if candidate["name"] == "initial_only"
+    )
+    response = client.post(
+        "/api/verify-code",
+        json={
+            "task_id": "ssrf_redirect",
+            "code": initial["code"],
+            "checker": "acv-rules",
+        },
+    )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["accepted"] is False
+    assert payload["security_pass"] is False
+    assert payload["behavior_pass"] is True
+    assert "PoC still succeeds" in payload["reasons"]
+
+
+def test_tools_endpoint_lists_adapters() -> None:
+    client = TestClient(server.app)
+    response = client.get("/api/tools")
+    assert response.status_code == 200
+    names = {tool["name"] for tool in response.json()}
+    assert {"acv-rules", "bandit", "semgrep"} <= names
+
+
+def test_qualify_endpoint_can_run_one_checker() -> None:
+    client = TestClient(server.app)
+    response = client.post("/api/qualify", json={"checkers": ["acv-rules"]})
+    assert response.status_code == 200
+    scores = response.json()["scores"]
+    assert len(scores) == 1
+    assert scores[0]["tool"] == "acv-rules"
+    assert scores[0]["samples"] > 0
+
+
+def test_audit_endpoint(monkeypatch) -> None:
+    monkeypatch.setattr(server, "run_audit", lambda _pack: [])
+    client = TestClient(server.app)
+    response = client.post("/api/audit")
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["summary"]["tasks"] == 0
+    assert payload["tasks"] == []
