@@ -7,6 +7,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 from typing import Literal
 
@@ -16,6 +17,7 @@ from .models import (
     CandidateManifest,
     CandidateResult,
     CheckerResult,
+    SourceResult,
     TaskResult,
     TaskSpec,
 )
@@ -151,6 +153,68 @@ def evaluate_candidate(
         checker_tool=primary.tool if primary.available else "acv-rules",
         checker_results=checker_results,
     )
+
+
+def evaluate_source(
+    task: TaskSpec,
+    code: str,
+    primary_checker: CheckerName = "acv-rules",
+) -> SourceResult:
+    """Run the same gate against source supplied at runtime.
+
+    There is no expected label here: the result says whether the supplied code
+    passes the executable oracle and the checker, not whether it is the "gold"
+    answer. This is the primitive behind a paste-in patch lab.
+    """
+
+    start = time.perf_counter()
+    with tempfile.TemporaryDirectory(prefix="acv-source-") as workdir:
+        candidate = Path(workdir) / "worker.py"
+        candidate.write_text(code, encoding="utf-8")
+
+        poc_exit, poc_output = run_poc(task, candidate)
+        behavior_exit, behavior_output = run_functional(task, candidate)
+        checker_results = run_checkers(candidate)
+
+        primary = checker_results.get(primary_checker)
+        if primary is None or not primary.available:
+            primary = checker_results["acv-rules"]
+            primary_checker = "acv-rules"
+
+        security_pass = poc_exit == 1
+        behavior_pass = behavior_exit == 0
+        checker_pass = primary.passed
+        accepted = security_pass and behavior_pass and checker_pass
+
+        reasons: list[str] = []
+        if poc_exit == 0:
+            reasons.append("PoC still succeeds")
+        elif poc_exit != 1:
+            reasons.append(f"PoC did not return a clean verdict (exit {poc_exit})")
+        if behavior_exit != 0:
+            reasons.append("functional suite fails")
+        if not checker_pass:
+            ids = ", ".join(sorted({finding.rule_id for finding in primary.blocking}))
+            reasons.append(f"checker findings: {ids or 'unavailable'}")
+
+        return SourceResult(
+            task_id=task.task_id,
+            task_title=task.title,
+            cwe=task.cwe,
+            poc_exit=poc_exit,
+            behavior_exit=behavior_exit,
+            poc_output=poc_output.strip()[-1200:],
+            behavior_output=behavior_output.strip()[-1200:],
+            security_pass=security_pass,
+            behavior_pass=behavior_pass,
+            checker_pass=checker_pass,
+            accepted=accepted,
+            reasons=reasons,
+            findings=primary.findings,
+            checker_tool=primary.tool if primary.available else "acv-rules",
+            checker_results=checker_results,
+            elapsed_ms=int((time.perf_counter() - start) * 1000),
+        )
 
 
 def _checker_summary(
