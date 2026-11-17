@@ -135,6 +135,40 @@ class CandidateResult:
 
 
 @dataclass
+class SourceResult:
+    """A gate result for source supplied at runtime, without a ground-truth label."""
+
+    task_id: str
+    task_title: str
+    cwe: str
+    poc_exit: int
+    behavior_exit: int
+    poc_output: str
+    behavior_output: str
+    security_pass: bool
+    behavior_pass: bool
+    checker_pass: bool
+    accepted: bool
+    reasons: list[str]
+    findings: list[CheckFinding]
+    checker_tool: str
+    checker_results: dict[str, CheckerResult] = field(default_factory=dict)
+    elapsed_ms: int = 0
+
+    @property
+    def rejected_by(self) -> str:
+        if self.accepted:
+            return "none"
+        if not self.security_pass:
+            return "poc"
+        if not self.behavior_pass:
+            return "behavior"
+        if not self.checker_pass:
+            return "checker"
+        return "unknown"
+
+
+@dataclass
 class TaskResult:
     task_id: str
     title: str
