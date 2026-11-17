@@ -455,10 +455,10 @@ def serve(
     host: Annotated[str, typer.Option("--host", help="Bind address.")] = "127.0.0.1",
     port: Annotated[int, typer.Option("--port", help="Port for the local app.")] = 8000,
 ) -> None:
-    """Serve the JSON review API."""
+    """Serve the interactive research console and API."""
     import uvicorn
 
-    console.print(f"[bold]Review API:[/bold] http://{host}:{port}")
+    console.print(f"[bold]Research console:[/bold] http://{host}:{port}")
     console.print(f"[dim]OpenAPI docs: http://{host}:{port}/docs[/dim]")
     uvicorn.run("acv.server:app", host=host, port=port, reload=False)
 
