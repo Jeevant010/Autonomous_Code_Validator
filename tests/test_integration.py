@@ -41,3 +41,9 @@ def test_payload_is_serializable() -> None:
     assert payload["summary"]["false_passes"] == 1
     encoded = json.dumps(payload)
     assert "cmd_runner" in encoded
+
+
+def test_audit_checker_table_only_contains_measured_tools() -> None:
+    payload = build_payload([run_task(load_task(PACK / "cmd_runner"))])
+    assert payload["summary"]["checkers"]
+    assert all(checker["available"] for checker in payload["summary"]["checkers"])
