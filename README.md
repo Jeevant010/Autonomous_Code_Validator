@@ -23,6 +23,68 @@ uv run ruff check .
 uv run mypy src
 ```
 
+## Research console
+
+The interactive UI is the fastest way to show the system without relying on terminal output:
+
+```bash
+uv run acv serve
+```
+
+Open `http://127.0.0.1:8000/`. The server also serves the OpenAPI docs at `/docs`.
+If port 8000 is already in use, run `uv run acv serve --port 8017` and open the matching URL.
+
+The console is a view over the real runner, not a static deck:
+
+| Panel | What it does |
+| :--- | :--- |
+| Dashboard | Run one labeled candidate, see corpus status, session run history, last audit, and last qualification |
+| Task explorer | Vulnerable source, exploit, functional test, every candidate, and a live deterministic gate run |
+| Patch lab | Paste or load a replacement `worker.py` and run the same exploit, functional suite, and checker gate |
+| Checker qualification | Runs the qualification harness and shows precision, recall, F1, runtime, and exact misses |
+| Audit matrix | Runs the full two-sided audit and shows false passes, false rejections, and the checker comparison |
+| Model review | Runs one live model review and places it next to the executable gate verdict |
+
+The UI calls these endpoints: `/api/tasks`, `/api/tasks/{id}`, `/api/verify`,
+`/api/verify-code`, `/api/tools`, `/api/qualify`, `/api/audit`, and `/api/review`. The
+deterministic panels work without any model key.
+
+## Patch lab: run source supplied by you
+
+The patch lab is the first step toward dynamic intake. It accepts a full replacement for the
+task's `worker.py`, writes it to a temporary directory, and runs the same executable gate:
+
+- the original exploit must stop succeeding;
+- the functional suite must still pass;
+- the primary checker must not report a blocking finding.
+
+```bash
+curl -s http://127.0.0.1:8000/api/tasks/ssrf_redirect \
+  | jq -r '.candidates[] | select(.name == "gold") | .code' > /tmp/worker.py
+
+jq -n --rawfile code /tmp/worker.py \
+  '{task_id: "ssrf_redirect", code: $code, checker: "acv-rules"}' \
+  | curl -s -X POST http://127.0.0.1:8000/api/verify-code \
+      -H 'Content-Type: application/json' -d @- | jq
+```
+
+The response is a gate result, not a ground-truth label. `accepted: true` means the supplied
+source passed the executable oracle and checker; it does not prove that the source is equivalent
+to a reference repair.
+
+**Security boundary.** This endpoint executes caller-supplied Python on the host. It is intended
+for local experiments with trusted code. There is no hardened sandbox in this build; do not expose
+the server to untrusted users. The next milestone is a sandbox adapter with a writable work
+directory, no network, a timeout, and a CPU/memory cap.
+
+## Turning this into research
+
+The current pack is a calibration set. The paper has to add a credible external evaluation, a
+clear threat model, and a careful account of what the gate can and cannot prove. The concrete
+plan, including dynamic patch intake, exploit adaptation, sandboxing, external benchmarks,
+ablations, paper structure, and a one-month timeline, is in
+[`docs/RESEARCH_PLAN.md`](docs/RESEARCH_PLAN.md).
+
 ## Five-minute demo
 
 Run the failure case first, then the fixed case. That is the story.
@@ -190,7 +252,8 @@ assert run_echo("hello") == "hello\n"
 | `src/acv/checkers/semgrep_adapter.py` | Optional Semgrep adapter with normalized JSON findings |
 | `src/acv/review.py` | Builds the model prompt, calls the model, compares with the gate |
 | `src/acv/llm/groq.py` | Groq client and structured review schema |
-| `src/acv/server.py` | JSON API only; no static presentation |
+| `src/acv/server.py` | FastAPI research console and verification API |
+| `src/acv/web/` | Vanilla HTML/CSS/JS console served by `acv serve`; no build step |
 | `src/acv/report.py` | Writes `reports/results.json` and `reports/summary.md` |
 | `tests/` | Tests for the verifier itself, not for the vulnerable workers |
 
@@ -289,13 +352,19 @@ uv run acv audit
 This writes `reports/results.json` and `reports/summary.md`. The report keeps false passes and
 false rejections in the denominator.
 
-### Serve the JSON API
+### Serve the research console
 
 ```bash
 uv run acv serve
 ```
 
-OpenAPI docs: `http://127.0.0.1:8000/docs`. There is no static deck to hide behind.
+Open the console at `http://127.0.0.1:8000/`. OpenAPI docs are at
+`http://127.0.0.1:8000/docs`. The server keeps the Groq key on the machine; the browser never sees
+it. The console is bidirectional: it fetches real task data and can run the gate, qualification,
+audit, and live review on demand.
+
+The static assets live in `src/acv/web/` and are served at `/static`. There is no frontend build
+step and no static deck to hide behind.
 
 ## The verification pipeline
 
