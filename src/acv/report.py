@@ -41,6 +41,10 @@ def aggregate(results: list[TaskResult]) -> dict[str, Any]:
     checker_totals: dict[str, dict[str, Any]] = {}
     for task in results:
         for name, stats in task.checker_summary.items():
+            if not bool(stats.get("available", False)):
+                # An unavailable checker has no findings, which would otherwise
+                # look like perfect precision. Keep it out of the measured table.
+                continue
             bucket = checker_totals.setdefault(
                 name,
                 {
