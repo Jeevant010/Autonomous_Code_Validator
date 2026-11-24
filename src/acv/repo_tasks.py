@@ -67,6 +67,7 @@ def load_repo_task(task_dir: Path) -> RepoSpec:
         poc_timeout=int(payload.get("poc_timeout", 120)),
         test_timeout=int(payload.get("test_timeout", 600)),
         protected_paths=tuple(payload.get("protected_paths", [])),
+        clean_baseline=bool(payload.get("clean_baseline", False)),
     )
 
 

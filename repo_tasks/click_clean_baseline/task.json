@@ -1,0 +1,18 @@
+{
+  "id": "click_clean_baseline",
+  "title": "Pallets Click (Clean CLI Framework Baseline)",
+  "cwe": "CWE-None",
+  "summary": "Clean negative control repository: verifying that healthy production codebases with no active vulnerabilities pass verification with zero false positives.",
+  "repo_url": "https://github.com/pallets/click.git",
+  "commit": "874ca2bc1c30d93a4ac6e36a15ed685eafe89097",
+  "clean_baseline": true,
+  "diff_paths": [
+    "src/click/core.py"
+  ],
+  "source_root": "src",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "memory_mb": 768,
+  "poc_timeout": 60,
+  "test_timeout": 120
+}

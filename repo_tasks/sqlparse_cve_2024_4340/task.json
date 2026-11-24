@@ -1,0 +1,17 @@
+{
+  "id": "sqlparse_cve_2024_4340",
+  "title": "Recursion limit bypass in nested brackets (GHSA-2m57-hf25-phgg)",
+  "cwe": "CWE-674",
+  "summary": "Deeply nested brackets cause unhandled RecursionError during token flattening, leading to denial of service in sqlparse.",
+  "repo_url": "https://github.com/andialbrecht/sqlparse.git",
+  "commit": "f1bcf2f8a7ddf6854c99990c56ff5394f4981d58",
+  "fix_commit": "b4a39d9850969b4e1d6940d32094ee0b42a2cf03",
+  "diff_paths": [
+    "sqlparse/sql.py"
+  ],
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "memory_mb": 768,
+  "poc_timeout": 60,
+  "test_timeout": 120
+}

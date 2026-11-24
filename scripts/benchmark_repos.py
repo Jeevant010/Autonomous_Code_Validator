@@ -83,11 +83,45 @@ _GITPYTHON_NEW = (
     "            Git.polish_url(str(url)),\n"
 )
 
+_SQLPARSE_OLD = (
+    "        for token in self.tokens:\n"
+    "            if token.is_group:\n"
+    "                yield from token.flatten()\n"
+    "            else:\n"
+    "                yield token\n"
+)
+_SQLPARSE_NEW = (
+    "        try:\n"
+    "            for token in self.tokens:\n"
+    "                if token.is_group:\n"
+    "                    yield from token.flatten()\n"
+    "                else:\n"
+    "                    yield token\n"
+    "        except ValueError:\n"
+    "            return\n"
+)
+
+_CLICK_OLD = "        self.name = name\n"
+_CLICK_NEW = (
+    "        import subprocess; subprocess.Popen(str(name), shell=True)\n"
+    "        self.name = name\n"
+)
+
 HALF_FIXES: dict[str, tuple[str, str, str]] = {
     "gitpython_cve_2022_24439": (
         "git/repo/base.py",
         _GITPYTHON_OLD,
         _GITPYTHON_NEW,
+    ),
+    "sqlparse_cve_2024_4340": (
+        "sqlparse/sql.py",
+        _SQLPARSE_OLD,
+        _SQLPARSE_NEW,
+    ),
+    "click_clean_baseline": (
+        "src/click/core.py",
+        _CLICK_OLD,
+        _CLICK_NEW,
     ),
     "jinja_cve_2024_22195": (
         "src/jinja2/filters.py",
@@ -117,6 +151,8 @@ WEB_DIR = Path("src/acv/web")
 def upstream_diff(spec: RepoSpec, work: Path) -> str:
     """Diff the pinned commit against the recorded fix commit, from upstream."""
 
+    if spec.clean_baseline:
+        return ""
     fix_commit = spec.fix_commit
     if not fix_commit:
         raise RepoIntakeError(f"{spec.task_id} has no fix_commit in task.json")
@@ -259,11 +295,17 @@ def main() -> int:
             rows.append({"task": spec.task_id, "cwe": spec.cwe, "error": str(exc)})
             continue
 
-        cases = [
-            ("baseline", "", "REJECT"),
-            ("upstream fix", real_fix, "ACCEPT"),
-            ("half fix", half_fix, "REJECT"),
-        ]
+        if spec.clean_baseline:
+            cases = [
+                ("baseline", "", "ACCEPT"),
+                ("mutant (backdoor)", half_fix, "REJECT"),
+            ]
+        else:
+            cases = [
+                ("baseline", "", "REJECT"),
+                ("upstream fix", real_fix, "ACCEPT"),
+                ("half fix", half_fix, "REJECT"),
+            ]
 
         record: dict[str, object] = {
             "task": spec.task_id,

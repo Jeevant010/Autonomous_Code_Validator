@@ -143,7 +143,7 @@ def probe_default_branch(
 
     detail = {
         "unfixed": "the attack reproduced on live code",
-        "fixed": "the attack was blocked on live code",
+        "fixed": "clean on live code; no vulnerabilities detected" if spec.clean_baseline else "the attack was blocked on live code",
         "unknown": "the PoC could not reach a verdict on live code",
     }[status]
     if status == "unknown":

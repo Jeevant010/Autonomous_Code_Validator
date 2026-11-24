@@ -91,6 +91,7 @@ class RepoSpec:
     poc_timeout: int = 120
     test_timeout: int = 600
     protected_paths: tuple[str, ...] = ()
+    clean_baseline: bool = False
 
     @property
     def poc_path(self) -> Path:
@@ -577,7 +578,10 @@ def evaluate_repo(
 
         oracle_exit, oracle_output = run_poc(spec, tree)
         oracle_verdict = classify_poc(oracle_exit, oracle_output)
-        oracle_ok = oracle_verdict == "vulnerable"
+        if spec.clean_baseline:
+            oracle_ok = oracle_verdict == "blocked"
+        else:
+            oracle_ok = oracle_verdict == "vulnerable"
         baseline_checks = run_checkers(spec, tree)
 
         changed: list[str] = []
@@ -598,9 +602,14 @@ def evaluate_repo(
 
         reasons: list[str] = []
         if not oracle_ok:
-            reasons.append(
-                f"oracle did not reproduce on the real repository (verdict {oracle_verdict})"
-            )
+            if spec.clean_baseline:
+                reasons.append(
+                    f"clean baseline verification failed: security check did not report clean (verdict {oracle_verdict})"
+                )
+            else:
+                reasons.append(
+                    f"oracle did not reproduce on the real repository (verdict {oracle_verdict})"
+                )
         if poc_verdict == "vulnerable":
             reasons.append("PoC still succeeds after the patch")
         elif poc_verdict == "error":
