@@ -1,0 +1,85 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real repository verification</title>
+<style>
+:root {
+  --bg: #f7f8fa;
+  --surface: #ffffff;
+  --border: #dfe3e8;
+  --text: #14181f;
+  --muted: #5b6472;
+  --green: #0f7b4f;
+  --green-bg: #e8f6ef;
+  --red: #b3261e;
+  --red-bg: #fdecea;
+  --amber: #8a5a00;
+  --amber-bg: #fdf3e0;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  padding: 40px 24px 80px;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.6;
+}
+.wrap { max-width: 1100px; margin: 0 auto; }
+h1 { font-size: 34px; line-height: 1.2; margin: 0 0 8px; letter-spacing: -0.02em; }
+h2 { font-size: 23px; margin: 40px 0 6px; letter-spacing: -0.01em; }
+.lede { font-size: 18px; color: var(--muted); margin: 0 0 28px; max-width: 760px; }
+.meta { color: var(--muted); font-size: 15px; }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin: 24px 0 8px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px; }
+.card .k { font-size: 15px; color: var(--muted); margin-bottom: 6px; }
+.card .v { font-size: 30px; font-weight: 700; letter-spacing: -0.02em; }
+table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; font-size: 16px; }
+th, td { padding: 14px 16px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+th { background: #f1f3f6; font-size: 15px; text-transform: none; color: var(--muted); font-weight: 600; }
+tr:last-child td { border-bottom: none; }
+code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 14.5px; }
+.pill { display: inline-block; padding: 4px 12px; border-radius: 999px; font-size: 14.5px; font-weight: 600; white-space: nowrap; }
+.ok { background: var(--green-bg); color: var(--green); }
+.bad { background: var(--red-bg); color: var(--red); }
+.warn { background: var(--amber-bg); color: var(--amber); }
+.taskblock { margin: 28px 0 12px; }
+.detail { color: var(--muted); font-size: 15px; }
+.why { font-size: 15px; color: var(--muted); margin-top: 4px; }
+footer { margin-top: 48px; color: var(--muted); font-size: 15px; border-top: 1px solid var(--border); padding-top: 20px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Verifying fixes against real open-source repositories</h1>
+  <p class="lede">
+    Each repository is cloned from GitHub at a release commit, its own test suite is run,
+    and a trusted attack script is executed against it. Three patches are judged per
+    repository: no patch, the real upstream fix, and a half fix that looks plausible.
+    A correct system rejects the first and third, and accepts the second.
+  </p>
+  <p class="meta">Generated 2026-11-24T08:34:59Z</p>
+  <div class="cards"><div class="card"><div class="k">Real repositories</div><div class="v">4</div></div><div class="card"><div class="k">Cases run</div><div class="v">12</div></div><div class="card"><div class="k">Verdicts correct</div><div class="v">12</div></div><div class="card"><div class="k">False accepts</div><div class="v">0</div></div></div>
+
+  <h2>How to read a row</h2>
+  <p class="detail">
+    <strong>Attack</strong> is the script that proves the weakness is reachable.
+    <strong>Fix</strong> is the patch under test. <strong>Tests</strong> is the
+    repository's own suite, which must keep passing. A patch is accepted only when
+    the attack is blocked, the tests pass, and the patch introduces no new static
+    finding. Pre-existing findings in untouched code never block a patch.
+  </p>
+
+  <div class="taskblock"><h2>jinja_cve_2024_22195</h2><p class="detail">CWE-79 &middot; <span class="mono">pallets/jinja.git</span> &middot; commit <span class="mono">b08cd4bc64bb</span></p><p class="detail">On the live default branch (<span class="mono">main</span> at <span class="mono">5ef70112a1ff</span>): <span class="pill ok">fixed</span> <span class="why">the attack was blocked on live code</span></p><table><thead><tr><th>Case</th><th>Verdict</th><th>Stopped by</th><th>Attack / fix / tests</th><th>Files changed</th><th>Code judged</th></tr></thead><tbody><tr><td><strong>baseline</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>no change</td><td class='mono'>61 files<br>22371 lines</td></tr><tr><td><strong>upstream fix</strong></td><td><span class='pill ok'>ACCEPT</span><div class='why'>expected ACCEPT &middot; matches expectation</div></td><td>none<div class='why'>attack blocked, tests pass, no new finding</div></td><td>vulnerable / blocked / 0</td><td class='mono'>src/jinja2/filters.py</td><td class='mono'>61 files<br>22385 lines</td></tr><tr><td><strong>half fix</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>src/jinja2/filters.py</td><td class='mono'>61 files<br>22374 lines</td></tr></tbody></table></div><div class="taskblock"><h2>pyyaml_cve_2020_14343</h2><p class="detail">CWE-502 &middot; <span class="mono">yaml/pyyaml.git</span> &middot; commit <span class="mono">538b5c93f7d5</span></p><p class="detail">On the live default branch (<span class="mono">main</span> at <span class="mono">29d7735966c3</span>): <span class="pill ok">fixed</span> <span class="why">the attack was blocked on live code</span></p><table><thead><tr><th>Case</th><th>Verdict</th><th>Stopped by</th><th>Attack / fix / tests</th><th>Files changed</th><th>Code judged</th></tr></thead><tbody><tr><td><strong>baseline</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>no change</td><td class='mono'>79 files<br>17082 lines</td></tr><tr><td><strong>upstream fix</strong></td><td><span class='pill ok'>ACCEPT</span><div class='why'>expected ACCEPT &middot; matches expectation</div></td><td>none<div class='why'>attack blocked, tests pass, no new finding</div></td><td>vulnerable / blocked / 0</td><td class='mono'>lib3/yaml/constructor.py</td><td class='mono'>79 files<br>17082 lines</td></tr><tr><td><strong>half fix</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>lib3/yaml/constructor.py</td><td class='mono'>79 files<br>17076 lines</td></tr></tbody></table></div><div class="taskblock"><h2>requests_cve_2023_32681</h2><p class="detail">CWE-522 &middot; <span class="mono">psf/requests.git</span> &middot; commit <span class="mono">2ad18e0e10e7</span></p><p class="detail">On the live default branch (<span class="mono">main</span> at <span class="mono">3c7baaa05ab4</span>): <span class="pill ok">fixed</span> <span class="why">the attack was blocked on live code</span></p><table><thead><tr><th>Case</th><th>Verdict</th><th>Stopped by</th><th>Attack / fix / tests</th><th>Files changed</th><th>Code judged</th></tr></thead><tbody><tr><td><strong>baseline</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>no change</td><td class='mono'>35 files<br>10729 lines</td></tr><tr><td><strong>upstream fix</strong></td><td><span class='pill ok'>ACCEPT</span><div class='why'>expected ACCEPT &middot; matches expectation</div></td><td>none<div class='why'>attack blocked, tests pass, no new finding</div></td><td>vulnerable / blocked / 0</td><td class='mono'>requests/sessions.py</td><td class='mono'>35 files<br>10731 lines</td></tr><tr><td><strong>half fix</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>requests/sessions.py</td><td class='mono'>35 files<br>10729 lines</td></tr></tbody></table></div><div class="taskblock"><h2>urllib3_cve_2023_43848</h2><p class="detail">CWE-201 &middot; <span class="mono">urllib3/urllib3.git</span> &middot; commit <span class="mono">262e3e332209</span></p><p class="detail">On the live default branch (<span class="mono">main</span> at <span class="mono">d9f9b0ad5b99</span>): <span class="pill ok">fixed</span> <span class="why">the attack was blocked on live code</span></p><table><thead><tr><th>Case</th><th>Verdict</th><th>Stopped by</th><th>Attack / fix / tests</th><th>Files changed</th><th>Code judged</th></tr></thead><tbody><tr><td><strong>baseline</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>no change</td><td class='mono'>75 files<br>27795 lines</td></tr><tr><td><strong>upstream fix</strong></td><td><span class='pill ok'>ACCEPT</span><div class='why'>expected ACCEPT &middot; matches expectation</div></td><td>none<div class='why'>attack blocked, tests pass, no new finding</div></td><td>vulnerable / blocked / 0</td><td class='mono'>src/urllib3/_collections.py, src/urllib3/connectionpool.py, src/urllib3/poolmanager.py</td><td class='mono'>75 files<br>27821 lines</td></tr><tr><td><strong>half fix</strong></td><td><span class='pill bad'>REJECT</span><div class='why'>expected REJECT &middot; matches expectation</div></td><td>poc<div class='why'>the attack still worked</div></td><td>vulnerable / vulnerable / 0</td><td class='mono'>src/urllib3/connectionpool.py</td><td class='mono'>75 files<br>27796 lines</td></tr></tbody></table></div>
+
+  <footer>
+    These are real CVEs in real repositories. Four repositories is a demonstration,
+    not a benchmark: no statistical claim is made about model families, sizes, or
+    quantisation from this table.
+  </footer>
+</div>
+</body>
+</html>

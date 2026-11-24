@@ -1,0 +1,37 @@
+{
+  "id": "pyyaml_cve_2020_14343",
+  "title": "PyYAML full_load arbitrary object construction (CVE-2020-14343)",
+  "cwe": "CWE-502",
+  "summary": "yaml.full_load used FullConstructor, which still registered the python/module, python/object and python/object/new multi-constructors. An attacker-controlled document can therefore instantiate arbitrary Python objects. Fixed in 5.4.1 by moving those constructors to UnsafeConstructor.",
+  "repo_url": "https://github.com/yaml/pyyaml.git",
+  "commit": "538b5c93f7d5dee40322893c1e524e94a4f8bbde",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "source_root": "lib3",
+  "install_targets": [
+    "pytest"
+  ],
+  "checker_include": [
+    "lib3/**/*.py"
+  ],
+  "checker_exclude": [
+    "tests/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "memory_mb": 512,
+  "poc_timeout": 120,
+  "test_timeout": 300,
+  "tags": [
+    "python",
+    "real_repo",
+    "pyyaml",
+    "cve-2020-14343",
+    "deserialization"
+  ],
+  "fix_tag": "5.4.1",
+  "fix_commit": "a001f2782501ad2d24986959f0239a354675f9dc",
+  "diff_paths": [
+    "lib3/yaml/constructor.py"
+  ]
+}

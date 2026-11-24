@@ -1,0 +1,41 @@
+{
+  "id": "requests_cve_2023_32681",
+  "title": "Requests proxy credential leak on redirect (CVE-2023-32681)",
+  "cwe": "CWE-522",
+  "summary": "Session.rebuild_proxies re-attached Proxy-Authorization for any scheme when the proxy URL carried credentials. On an HTTPS request tunnelled through a proxy, those credentials end up on a request the origin can observe. Fixed in 2.31.0 by not adding the header for https schemes, where urllib3 handles proxy authorization inside the tunnel.",
+  "repo_url": "https://github.com/psf/requests.git",
+  "commit": "2ad18e0e10e7d7ecd5384c378f25ec8821a10a29",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "source_root": ".",
+  "install_targets": [
+    "charset_normalizer",
+    "idna",
+    "urllib3",
+    "certifi",
+    "pytest"
+  ],
+  "checker_include": [
+    "requests/**/*.py"
+  ],
+  "checker_exclude": [
+    "tests/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "memory_mb": 768,
+  "poc_timeout": 120,
+  "test_timeout": 300,
+  "tags": [
+    "python",
+    "real_repo",
+    "requests",
+    "cve-2023-32681",
+    "credential-leak"
+  ],
+  "fix_tag": "v2.31.0",
+  "fix_commit": "74ea7cf7a6a27a4eeb2ae24e162bcc942a6706d5",
+  "diff_paths": [
+    "requests/sessions.py"
+  ]
+}

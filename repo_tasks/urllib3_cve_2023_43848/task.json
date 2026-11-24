@@ -1,0 +1,44 @@
+{
+  "id": "urllib3_cve_2023_43848",
+  "title": "urllib3 request body leaked across a 303 redirect (CVE-2023-43848)",
+  "cwe": "CWE-201",
+  "summary": "On a 303 redirect urllib3 changed the method to GET but kept the request body and content-specific headers, so a body such as a session token was re-sent to the redirect target. Fixed in 2.0.7 by clearing the body and stripping content headers.",
+  "repo_url": "https://github.com/urllib3/urllib3.git",
+  "commit": "262e3e332209ee93ff70e2b13502c8f20c105ac8",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "source_root": "src",
+  "install_targets": [
+    "pytest"
+  ],
+  "checker_include": [
+    "src/urllib3/**/*.py"
+  ],
+  "checker_exclude": [
+    "test/**",
+    "tests/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "memory_mb": 768,
+  "poc_timeout": 120,
+  "test_timeout": 300,
+  "tags": [
+    "python",
+    "real_repo",
+    "urllib3",
+    "cve-2023-43848",
+    "information-leak"
+  ],
+  "fix_tag": "2.0.7",
+  "fix_commit": "4e50fbc5db74e32cabd5ccc1ab81fc103adfe0b3",
+  "diff_paths": [
+    "src/urllib3/_collections.py",
+    "src/urllib3/connectionpool.py",
+    "src/urllib3/poolmanager.py"
+  ],
+  "bootstrap": [
+    "sh .acv-bootstrap.sh"
+  ],
+  "python_path_extra": []
+}
