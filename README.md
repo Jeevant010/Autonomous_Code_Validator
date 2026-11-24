@@ -1,15 +1,17 @@
 # Autonomous Code Validator
 
-A verifier for security patches. It checks three things at once:
+A verifier for security patches and generated code. It checks four things at once:
 
-1. Does the exploit still work?
-2. Does the worker still behave correctly?
-3. Does a static checker still flag the code?
+1. Does the exploit reproduce on the vulnerable baseline?
+2. Does the exploit stop working on the candidate?
+3. Does the normal behaviour suite still pass?
+4. Does a static checker still report a blocking pattern?
 
 The deterministic gate is the decision. The optional live model is a second opinion, not the gate.
 
-The current `security_workers/` pack is a calibration set: 11 small, deliberately vulnerable
-workers. It is useful for testing the verifier, but it is not a real-world benchmark.
+The built-in `security_workers/` pack is a calibration set: 11 small, deliberately vulnerable
+workers. The newer `project_workers/` pack is a multi-file project set. Both are useful for
+testing the verifier, but neither is a public real-world benchmark.
 
 ## Quick start
 
@@ -18,6 +20,10 @@ uv sync --all-extras
 uv run acv list
 uv run acv show cmd_runner
 uv run acv verify cmd_runner semicolon_filter
+uv run acv projects
+uv run acv verify-project doc_portal --candidate gold
+uv run acv verify-project gitpython_cve_2022_24439 --candidate gold
+uv run acv verify-project gitpython_cve_2022_24439 --candidate clone_only
 uv run pytest
 uv run ruff check .
 uv run mypy src
@@ -38,25 +44,52 @@ The console is a view over the real runner, not a static deck:
 
 | Panel | What it does |
 | :--- | :--- |
-| Dashboard | Run one labeled candidate, see corpus status, session run history, last audit, and last qualification |
+| Dashboard | Run one labeled candidate, see the four-step workflow, corpus status, session run history, last audit, and last qualification |
+| How it works | Explains the gate in plain language: choose a target, supply a candidate, run evidence, read the verdict |
 | Task explorer | Vulnerable source, exploit, functional test, every candidate, and a live deterministic gate run |
-| Patch lab | Paste or load a replacement `worker.py` and run the same exploit, functional suite, and checker gate |
+| Patch lab | Paste or load a replacement `worker.py`, or apply a unified diff, then run the same exploit, functional suite, and checker gate. The result includes the exact evaluated source and the applied diff |
+| Project verifier | Inspect a complete multi-file project tree, run reference and incomplete fixes, or upload/paste an overlay produced by any model. The exploit and tests live outside the base tree, so generated code cannot replace its own judge |
+| Task import | Validate and import a new vulnerability fixture as a JSON bundle into the user pack, without editing the built-in calibration pack |
 | Checker qualification | Runs the qualification harness and shows precision, recall, F1, runtime, and exact misses |
 | Audit matrix | Runs the full two-sided audit and shows false passes, false rejections, and the checker comparison |
 | Model review | Runs one live model review and places it next to the executable gate verdict |
+| Repair lab | Asks the model for a candidate repair, then runs the deterministic gate on the generated code. The proposal is advisory; the gate is the verdict |
 
 The UI calls these endpoints: `/api/tasks`, `/api/tasks/{id}`, `/api/verify`,
-`/api/verify-code`, `/api/tools`, `/api/qualify`, `/api/audit`, and `/api/review`. The
-deterministic panels work without any model key.
+`/api/verify-code`, `/api/verify-patch`, `/api/tasks/template`, `/api/tasks/validate`,
+`/api/tasks/import`, `/api/projects`, `/api/projects/{id}`, `/api/projects/{id}/verify`,
+`/api/projects/{id}/verify-patch`, `/api/tools`, `/api/qualify`, `/api/audit`, `/api/review`,
+and `/api/repair`. The deterministic panels work without any model key.
 
-## Patch lab: run source supplied by you
+The new console features are separately switchable with environment flags:
 
-The patch lab is the first step toward dynamic intake. It accepts a full replacement for the
-task's `worker.py`, writes it to a temporary directory, and runs the same executable gate:
+```bash
+ACV_FEATURE_GUIDE=0
+ACV_FEATURE_PATCH_PREVIEW=0
+ACV_FEATURE_TASK_IMPORT=0
+ACV_FEATURE_REPAIR=0
+ACV_FEATURE_PROJECTS=0
+ACV_FEATURE_PROJECT_LOG=0
+uv run acv serve
+```
 
-- the original exploit must stop succeeding;
+The flags only control the optional console/API features. The deterministic gate is always
+present, and the existing verification endpoints keep working.
+
+## Patch lab: run source or a diff supplied by you
+
+The patch lab is the first step toward dynamic intake. It accepts either a full replacement for
+the task's `worker.py` or a unified diff against the vulnerable worker, then runs the same
+executable gate:
+
+- the original exploit must reproduce on the vulnerable source;
+- the original exploit must stop succeeding on the candidate;
 - the functional suite must still pass;
 - the primary checker must not report a blocking finding.
+
+The oracle check is deliberately separate from the candidate check. If the exploit no longer
+works even on the vulnerable source, the run is marked `oracle_ok: false` and is rejected. That
+prevents a broken exploit from being mistaken for a fixed patch.
 
 ```bash
 curl -s http://127.0.0.1:8000/api/tasks/ssrf_redirect \
@@ -68,14 +101,241 @@ jq -n --rawfile code /tmp/worker.py \
       -H 'Content-Type: application/json' -d @- | jq
 ```
 
-The response is a gate result, not a ground-truth label. `accepted: true` means the supplied
-source passed the executable oracle and checker; it does not prove that the source is equivalent
-to a reference repair.
+For a diff, write a unified diff that targets `worker.py` and post it to `/api/verify-patch`:
 
-**Security boundary.** This endpoint executes caller-supplied Python on the host. It is intended
-for local experiments with trusted code. There is no hardened sandbox in this build; do not expose
-the server to untrusted users. The next milestone is a sandbox adapter with a writable work
-directory, no network, a timeout, and a CPU/memory cap.
+```bash
+jq -n --rawfile diff /tmp/worker.diff \
+  '{task_id: "ssrf_redirect", diff: $diff, checker: "acv-rules"}' \
+  | curl -s -X POST http://127.0.0.1:8000/api/verify-patch \
+      -H 'Content-Type: application/json' -d @- | jq
+```
+
+The API rejects diffs that target anything other than `worker.py` or contain path escapes. The
+response is a gate result, not a ground-truth label. `accepted: true` means the supplied source
+passed the executable oracle and checker; it does not prove that the source is equivalent to a
+reference repair.
+
+**Security boundary.** These endpoints execute caller-supplied Python on the host. The runner
+now applies process-level limits (wall-clock timeout, CPU seconds, address space, file size, open
+files), starts each run in a fresh process group, and strips common secret-bearing environment
+variables. That is containment, not isolation: there is no network namespace or filesystem jail.
+Treat all input as trusted and do not expose the server to untrusted users. The next milestone is
+a container or micro-VM sandbox with no network, a read-only base, and a writable workspace.
+
+
+## Project verification: multi-file and generated code
+
+The single-file pack answers "can this verifier catch a small mistake?" It does not answer "can it
+judge a generated project with many files, imports, and tests?" The project path is for that second
+question.
+
+A project task lives under `project_workers/` and has this shape:
+
+```text
+project_workers/doc_portal/
+  task.json
+  vulnerable/          # complete base tree
+    portal/...
+  fixed/               # overlay: only files the reference fix changes
+    portal/paths.py
+  benign/              # a different safe implementation, as an overlay
+  mutants/absolute_only/
+  poc/exploit.py       # trusted evidence, outside the base tree
+  tests/test_functional.py
+  data/
+```
+
+The manifest names the base tree, evidence, checker scope, limits, and candidate overlays. The
+runner copies the base tree to a temporary directory, applies the generated overlay or multi-file
+diff, runs the exploit and the full functional suite, and scans every Python file in the declared
+checker scope. Acceptance requires all four signals:
+
+```text
+oracle_ok && security_pass && behavior_pass && checker_pass
+```
+
+The exploit and functional test are not taken from the generated overlay. A generated file cannot
+replace `poc/`, `tests/`, `conftest.py`, `pytest.ini`, or interpreter configuration such as
+`sitecustomize.py`. This keeps the judge outside the code it is judging.
+
+The included `doc_portal` project is deliberately larger than the single-file fixtures: roughly
+18 files and 960 lines, with configuration, storage, search, rendering, authentication, a service
+facade, an HTTP router, plugins, a CLI, an exploit, and a functional suite. It is still a
+calibration example, not a claim about a real production repository. The GitPython task below is
+the real-repository case.
+
+### Real-repository case: GitPython CVE-2022-24439
+
+The second project task is not a toy service. It uses the released **GitPython 3.1.29**
+package and its `gitdb` / `smmap` dependencies, with the real CVE-2022-24439
+remote-helper command-injection bug.
+
+```text
+project_workers/gitpython_cve_2022_24439/
+  vulnerable/git/...              # real GitPython 3.1.29 code
+  vulnerable/gitdb/...
+  vulnerable/smmap/...
+  fixed/git/...                   # upstream 3.1.30 fix files
+  benign/git/...                  # central guard, different implementation
+  mutants/clone_only/git/...      # fixes clone but leaves remote fetch open
+  poc/exploit.py                  # two real attack paths
+  tests/test_functional.py        # normal clone / fetch behaviour
+```
+
+The exploit tries both `Repo.clone_from("ext::sh ...")` and
+`Remote.create(...)` followed by `Remote.fetch()`. The upstream fix blocks both;
+the `clone_only` mutant blocks the first path and still loses to the second.
+Normal local clone and fetch tests must keep passing.
+
+```bash
+uv run acv verify-project gitpython_cve_2022_24439 --candidate gold
+uv run acv verify-project gitpython_cve_2022_24439 --candidate clone_only
+```
+
+Expected result:
+
+| Candidate | Verdict | Evidence |
+| :--- | :--- | :--- |
+| vulnerable baseline | reject | remote-helper command executes |
+| `gold` (upstream 3.1.30) | accept | both paths blocked, normal tests pass |
+| `benign` (central guard) | accept | both paths blocked, normal tests pass |
+| `clone_only` | reject | clone fixed, remote fetch still executes |
+
+This is a known real vulnerability used to test the verifier. It is not a new
+disclosure, and it does not prove that every GitPython code path is covered. The
+project runner still uses process limits only; run untrusted code in a VM or
+container.
+
+### Bring code from any model
+
+The verifier never calls a model. A studio, notebook, local runner, hosted API, or quantized
+model can produce files; the verifier consumes a `path -> text` overlay and decides with the
+deterministic gate. This keeps the model boundary explicit and makes the same workflow work with
+any model or backend.
+
+```bash
+# Run a named reference candidate.
+curl -s -X POST http://127.0.0.1:8017/api/projects/doc_portal/verify \
+  -H 'Content-Type: application/json' \
+  -d '{"candidate": "gold", "checker": "acv-rules"}' | jq '{accepted, rejected_by, reasons}'
+
+# Run generated files, with optional provenance.
+curl -s -X POST http://127.0.0.1:8017/api/projects/doc_portal/verify \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "files": {"portal/paths.py": "from pathlib import Path\n...\n"},
+    "provenance": {
+      "model": "qwen2.5-coder-32b",
+      "provider": "local",
+      "backend": "vllm",
+      "quantization": "AWQ",
+      "temperature": 0,
+      "seed": 7,
+      "prompt": "fix the path traversal"
+    }
+  }' | jq '{accepted, rejected_by, total_files, total_lines, findings}'
+```
+
+The response includes the gate signals, file-level findings with paths and line numbers, an
+inventory of the judged tree, the provenance record, an `isolation` warning, and a `run_id`.
+Optional provenance is appended to `reports/project_runs.jsonl` when `ACV_FEATURE_PROJECT_LOG` is
+enabled. Provenance is observability, not evidence: the gate does not read the model name or the
+confidence. The project roots and log path are configurable:
+
+```bash
+ACV_PROJECT_PACK=/path/to/project_workers
+ACV_USER_PROJECT_PACK=/path/to/user_project_workers
+ACV_PROJECT_RUN_LOG=/path/to/project_runs.jsonl
+```
+
+### Large-code handling
+
+The project path is bounded on purpose:
+
+- 400 files and 2 MB per project by default, configurable in the manifest;
+- 250 overlay files and 1.5 MB per generated overlay;
+- 1 MB per checker file and 250 source files per checker run;
+- 500 findings per checker, with an explicit `truncated` flag;
+- output is clipped to the last 4,000 characters per stream;
+- file contents are fetched one at a time by the UI instead of sending the whole tree in every
+  response.
+
+These limits make large-code behaviour predictable. They do not make the project path a
+real-world benchmark or a replacement for a repository-aware test harness.
+
+### Critical code and isolation
+
+The local project runner uses process limits only: wall-clock timeout, CPU seconds, address
+space, file size, open files, and a stripped environment. It has no network namespace, no
+filesystem jail, and no container boundary. The API requires
+`"criticality": "critical"` plus `"isolation_acknowledged": true` before it will run critical
+input, and the result carries that warning. The acknowledgement records the boundary; it does not
+create isolation. Critical or untrusted code should be moved to a VM or container with no network
+and a disposable workspace before the gate is run.
+
+## Task import: add a fixture without editing the built-in pack
+
+The Task import view edits a single JSON bundle. A bundle contains the task manifest and the
+files it references; `task.json` is generated from the manifest during import.
+
+```json
+{
+  "manifest": {
+    "id": "example_cmd_runner",
+    "title": "Example command runner",
+    "cwe": "CWE-78",
+    "summary": "A deliberately vulnerable worker used as an import example.",
+    "vulnerable": "vulnerable/worker.py",
+    "fixed": "fixed/worker.py",
+    "poc": "poc/exploit.py",
+    "functional": "tests/test_functional.py",
+    "data_dir": "data",
+    "candidates": [
+      {"name": "gold", "path": "fixed/worker.py", "kind": "gold", "expected_security": true}
+    ]
+  },
+  "files": {
+    "vulnerable/worker.py": "...",
+    "fixed/worker.py": "...",
+    "poc/exploit.py": "...",
+    "tests/test_functional.py": "..."
+  }
+}
+```
+
+```bash
+curl -s http://127.0.0.1:8017/api/tasks/template | jq > /tmp/task-bundle.json
+curl -s -X POST http://127.0.0.1:8017/api/tasks/validate \
+  -H 'Content-Type: application/json' -d @/tmp/task-bundle.json | jq
+curl -s -X POST http://127.0.0.1:8017/api/tasks/import \
+  -H 'Content-Type: application/json' -d @/tmp/task-bundle.json | jq
+```
+
+Imported tasks are written to `ACV_USER_PACK` (default `user_security_workers/`, which is
+git-ignored). The path is separate from the built-in `security_workers/` calibration pack so
+that the two can be developed and versioned independently. Import validates the manifest and
+required paths; it does **not** execute the exploit or the candidate. Running an imported task
+still goes through the same process-limited gate.
+
+## Model-proposed repairs
+
+`POST /api/repair` asks the configured model for a complete replacement `worker.py`, then runs
+the deterministic gate on the generated code:
+
+```bash
+curl -s -X POST http://127.0.0.1:8017/api/repair \
+  -H 'Content-Type: application/json' \
+  -d '{"task_id": "cmd_runner"}' | jq
+```
+
+The response contains the model's summary, confidence, assumptions, test gaps, generated source,
+and a separate `gate` result. The model never decides acceptance. A generated repair can still
+fail because the exploit succeeds, the functional suite regresses, the checker blocks it, or the
+generated code is invalid. The Repair lab shows the proposal next to that gate result and can
+move the generated source into Patch lab for inspection.
+
+This is a bounded proposal workflow, not a claim of guaranteed automatic repair. It does not
+generate new tests, generate a new exploit, or prove semantic equivalence with a reference fix.
 
 ## Turning this into research
 
@@ -186,8 +446,9 @@ security_workers/cmd_runner/
 └── tests/test_functional.py  # behavior that must keep working
 ```
 
-The vulnerable code is not in `src/acv/`. `src/acv/` is the verifier. The targets are under
-`security_workers/`.
+The vulnerable code is not in `src/acv/`. `src/acv/` is the verifier. The built-in targets are
+under `security_workers/`. Imported tasks use the same layout under `user_security_workers/` and
+are loaded alongside the built-in pack.
 
 | Task | CWE | Vulnerable file |
 | :--- | :--- | :--- |
@@ -251,7 +512,10 @@ assert run_echo("hello") == "hello\n"
 | `src/acv/checkers/bandit_adapter.py` | Bandit adapter; reports unavailable if Bandit is absent |
 | `src/acv/checkers/semgrep_adapter.py` | Optional Semgrep adapter with normalized JSON findings |
 | `src/acv/review.py` | Builds the model prompt, calls the model, compares with the gate |
-| `src/acv/llm/groq.py` | Groq client and structured review schema |
+| `src/acv/repair.py` | Builds a repair prompt, validates the proposal, and runs the deterministic gate |
+| `src/acv/task_import.py` | Validates task bundles and publishes them into the user pack |
+| `src/acv/features.py` | Environment-driven feature flags for the guided view, patch preview, import, and repair |
+| `src/acv/llm/groq.py` | Groq client, structured review schema, and generic JSON completion |
 | `src/acv/server.py` | FastAPI research console and verification API |
 | `src/acv/web/` | Vanilla HTML/CSS/JS console served by `acv serve`; no build step |
 | `src/acv/report.py` | Writes `reports/results.json` and `reports/summary.md` |
@@ -412,8 +676,11 @@ The repair loop should be:
 6. **Re-scan** to confirm the finding is gone.
 7. **Reject** if the fix is only an input filter for the test case.
 
-This is not implemented as a CLI command yet. `acv verify <task> <candidate>` is the manual version
-of the same gate.
+The Repair lab implements steps 2–7 as a single bounded proposal: the model suggests a fix, the
+gate applies it in a fresh temporary directory, and the exploit, functional suite, and checker
+decide whether it is accepted. There is still no CLI command for it, and there is no multi-step
+repair loop that locates the sink, rewrites tests, or generates a new exploit. `acv verify
+<task> <candidate>` remains the manual version of the deterministic gate.
 
 ## Hard network cases to add next
 
@@ -474,19 +741,31 @@ the calibration pack a real-world benchmark.
 - The task pack is synthetic and small.
 - Checker scores are optimistic because the corpus is tuned to the built-in rules.
 - There is no ensemble scoring yet (union/intersection of tools).
-- There is no real Git patch input yet (`acv verify --patch`).
-- There is no automated repair loop yet; repair mapping is documented, not implemented.
-- There is no hardened sandbox; execution uses a temporary directory.
+- Unified-diff intake is limited to a single `worker.py`; the project path supports multi-file
+  overlays and multi-file diffs, but only for the Python projects configured under
+  `project_workers/`.
+- The project pack currently contains one calibration example. It demonstrates scale, file-level
+  evidence, and model-agnostic intake; it is not an external benchmark.
+- The project path does not install dependencies, resolve a Git URL, or import an arbitrary real
+  repository. Those belong behind an isolated runner and an explicit dependency policy.
+- Repair generation is a single model proposal followed by the gate. There is no multi-step
+  repair loop, no generated test suite, and no proof that a generated patch is semantically
+  equivalent to a reference fix.
+- Imported tasks are validated structurally but not automatically audited; running them is still
+  an explicit action.
+- Execution has process-level limits but no network or filesystem isolation. It is not a
+  hardened sandbox.
 - There is no SARIF normalizer, PR comment, or CI gate yet.
 - The model review is advisory and can be wrong.
 - A model failing one hard case is not proof that all models fail it.
 
 ## Next implementation order
 
-1. Add ensemble scoring: union/intersection recall and precision.
-2. Add `acv repair --finding <id>` and `acv verify --patch change.diff`.
-3. Add adapters for secrets, dependencies, IaC, containers, and DAST.
-4. Add SARIF normalization and a CI gate.
+See `docs/RESEARCH_PLAN.md` for the prioritized build and evaluation plan. The short version is:
+container sandbox, external benchmark importer, held-out repository evaluation, structured test
+parsing, and artifact packaging.
+
 5. Parse structured pytest JSON instead of text.
 6. Run untrusted code in Docker or gVisor.
 7. Add external benchmark adapters (OWASP Benchmark, Vul4J, CVE-bench).
+8. Add a held-out repository set before calling the project path a real-world benchmark.

@@ -1,4 +1,4 @@
-.PHONY: sync test lint format audit demo list show verify tools qualify serve
+.PHONY: sync test lint format audit demo list show verify tools qualify serve projects project-demo
 
 sync:
 	uv sync --all-extras
@@ -20,6 +20,9 @@ audit:
 list:
 	uv run acv list
 
+projects:
+	uv run acv projects
+
 show:
 	uv run acv show cmd_runner
 
@@ -34,5 +37,11 @@ qualify:
 
 serve:
 	uv run acv serve
+
+project-demo: projects
+	uv run acv verify-project doc_portal --candidate gold
+	uv run acv verify-project doc_portal --candidate absolute_only
+	uv run acv verify-project gitpython_cve_2022_24439 --candidate gold
+	uv run acv verify-project gitpython_cve_2022_24439 --candidate clone_only
 
 demo: sync list show verify tools

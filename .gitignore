@@ -24,6 +24,11 @@ reports/screenshots/
 # Worker runtime artifacts
 security_workers/*/__pycache__/
 security_workers/*/*/__pycache__/
+user_security_workers/
+project_workers/**/__pycache__/
+project_workers/**/.pytest_cache/
+user_project_workers/
+reports/project_runs.jsonl
 
 # OS
 .DS_Store

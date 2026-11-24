@@ -41,10 +41,14 @@ packages = ["src/acv"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
-exclude = ["security_workers"]
+exclude = ["security_workers", "project_workers", "user_project_workers"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/acv/repo_report.py" = ["E501"]
+"scripts/benchmark_repos.py" = ["E501"]
 
 [tool.mypy]
 python_version = "3.12"
