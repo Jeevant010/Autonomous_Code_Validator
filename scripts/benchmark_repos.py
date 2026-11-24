@@ -71,7 +71,24 @@ _URLLIB3_NEW = (
     "                body = None\n"
 )
 
+_GITPYTHON_OLD = (
+    "        proc = git.clone(\n"
+    "            multi,\n"
+    "            Git.polish_url(str(url)),\n"
+)
+_GITPYTHON_NEW = (
+    "        proc = git.clone(\n"
+    "            multi,\n"
+    '            "--",\n'
+    "            Git.polish_url(str(url)),\n"
+)
+
 HALF_FIXES: dict[str, tuple[str, str, str]] = {
+    "gitpython_cve_2022_24439": (
+        "git/repo/base.py",
+        _GITPYTHON_OLD,
+        _GITPYTHON_NEW,
+    ),
     "jinja_cve_2024_22195": (
         "src/jinja2/filters.py",
         _JINJA_OLD,

@@ -1,0 +1,42 @@
+{
+  "id": "gitpython_cve_2022_24439",
+  "title": "GitPython remote-helper command injection (CVE-2022-24439)",
+  "cwe": "CWE-78",
+  "summary": "GitPython 3.1.29 passes caller-controlled clone URLs and extra git options directly to git. A remote-helper URL such as ext::sh can execute arbitrary shell commands. Fixed in GitPython 3.1.30 by rejecting unsafe protocols and options.",
+  "repo_url": "https://github.com/gitpython-developers/GitPython.git",
+  "commit": "19aaa74aafc06663644d634f33bb8af871d58536",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "source_root": ".",
+  "install_targets": [
+    "gitdb",
+    "smmap",
+    "pytest"
+  ],
+  "checker_include": [
+    "git/**/*.py"
+  ],
+  "checker_exclude": [
+    "tests/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "memory_mb": 768,
+  "poc_timeout": 120,
+  "test_timeout": 300,
+  "tags": [
+    "python",
+    "real_repo",
+    "gitpython",
+    "cve-2022-24439",
+    "command-injection"
+  ],
+  "fix_tag": "3.1.30",
+  "fix_commit": "141cd651e459bff8919798b3ccf03dfa167757f6",
+  "diff_paths": [
+    "git/cmd.py",
+    "git/exc.py",
+    "git/remote.py",
+    "git/repo/base.py"
+  ]
+}
