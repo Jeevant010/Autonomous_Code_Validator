@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+import difflib
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
 import time
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Literal
 
 from .checkers import CheckerAdapter, checker_adapters
@@ -21,30 +22,21 @@ from .models import (
     TaskResult,
     TaskSpec,
 )
+from .sandbox import SandboxPolicy
+from .sandbox import run as run_sandboxed
+from .verdict import classify_poc
 
 CheckerName = Literal["acv-rules", "bandit", "semgrep"]
 
 
 def _run(command: list[str], cwd: Path, env: dict[str, str], timeout: int) -> tuple[int, str]:
-    try:
-        proc = subprocess.run(
-            command,
-            cwd=cwd,
-            env=env,
-            capture_output=True,
-            text=True,
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as exc:
-        stdout = exc.stdout or ""
-        stderr = exc.stderr or ""
-        if isinstance(stdout, bytes):
-            stdout = stdout.decode("utf-8", errors="replace")
-        if isinstance(stderr, bytes):
-            stderr = stderr.decode("utf-8", errors="replace")
-        return 124, f"{stdout}{stderr}\n[timeout after {timeout}s]"
-    return proc.returncode, f"{proc.stdout}{proc.stderr}"
+    policy = SandboxPolicy(
+        timeout=float(timeout),
+        cpu_seconds=max(timeout, 1),
+        memory_mb=512,
+        file_size_mb=16,
+    )
+    return run_sandboxed(command, cwd=cwd, env=env, policy=policy)
 
 
 def _environment(task: TaskSpec, workdir: Path) -> dict[str, str]:
@@ -111,17 +103,18 @@ def evaluate_candidate(
         primary = checker_results["acv-rules"]
         primary_checker = "acv-rules"
 
-    security_pass = poc_exit == 1
+    poc_verdict = classify_poc(poc_exit, poc_output)
+    security_pass = poc_verdict == "blocked"
     behavior_pass = behavior_exit == 0
     checker_pass = primary.passed
     accepted = security_pass and behavior_pass and checker_pass
     expected_accepted = candidate.kind in {"gold", "benign"}
 
     reasons: list[str] = []
-    if poc_exit == 0:
+    if poc_verdict == "vulnerable":
         reasons.append("PoC still succeeds")
-    elif poc_exit != 1:
-        reasons.append(f"PoC did not return a clean verdict (exit {poc_exit})")
+    elif poc_verdict == "error":
+        reasons.append("PoC could not reach a verdict: the candidate crashed or the fixture broke")
     if behavior_exit != 0:
         reasons.append("functional suite fails")
     if not checker_pass:
@@ -152,6 +145,140 @@ def evaluate_candidate(
         findings=primary.findings,
         checker_tool=primary.tool if primary.available else "acv-rules",
         checker_results=checker_results,
+        poc_verdict=poc_verdict,
+    )
+
+
+class PatchApplyError(ValueError):
+    """Raised when a supplied unified diff cannot be applied safely."""
+
+
+def _validate_worker_diff(diff: str) -> None:
+    if not diff.strip():
+        raise PatchApplyError("diff is empty")
+    targets: set[str] = set()
+    for line in diff.splitlines():
+        if not line.startswith(("--- ", "+++ ")):
+            continue
+        raw = line[4:].split("\t", 1)[0].strip()
+        if raw == "/dev/null":
+            continue
+        path = PurePosixPath(raw)
+        if ".." in path.parts:
+            raise PatchApplyError("diff paths may not escape the work directory")
+        normalized = raw.removeprefix("a/").removeprefix("b/")
+        if normalized != "worker.py":
+            raise PatchApplyError("diff may only modify worker.py")
+        targets.add(normalized)
+    if not targets:
+        raise PatchApplyError("diff has no worker.py target")
+
+
+def _apply_worker_diff(task: TaskSpec, diff: str, workdir: Path) -> Path:
+    candidate = workdir / "worker.py"
+    candidate.write_text(task.vulnerable.read_text(encoding="utf-8"), encoding="utf-8")
+    diff_path = workdir / "change.diff"
+    diff_path.write_text(diff, encoding="utf-8")
+
+    for command in (
+        ["git", "apply", "--check", "-p1", "change.diff"],
+        ["git", "apply", "-p1", "change.diff"],
+    ):
+        try:
+            proc = subprocess.run(
+                command,
+                cwd=workdir,
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+        except (OSError, subprocess.TimeoutExpired) as exc:
+            raise PatchApplyError(f"could not run git apply: {exc}") from exc
+        if proc.returncode != 0:
+            detail = (proc.stderr or proc.stdout).strip()
+            raise PatchApplyError(f"diff did not apply: {detail or 'git apply failed'}")
+    return candidate
+
+
+def _evaluate_source_path(
+    task: TaskSpec,
+    candidate: Path,
+    primary_checker: CheckerName,
+    started: float,
+    *,
+    diff_applied: bool,
+    input_mode: str,
+) -> SourceResult:
+    oracle_exit, oracle_output = run_poc(task, task.vulnerable)
+    oracle_ok = oracle_exit == 0
+
+    candidate_code = candidate.read_text(encoding="utf-8")
+    vulnerable_code = task.vulnerable.read_text(encoding="utf-8")
+    applied_diff = "".join(
+        difflib.unified_diff(
+            vulnerable_code.splitlines(keepends=True),
+            candidate_code.splitlines(keepends=True),
+            fromfile="a/worker.py",
+            tofile="b/worker.py",
+        )
+    )
+
+    poc_exit, poc_output = run_poc(task, candidate)
+    behavior_exit, behavior_output = run_functional(task, candidate)
+    checker_results = run_checkers(candidate)
+
+    primary = checker_results.get(primary_checker)
+    if primary is None or not primary.available:
+        primary = checker_results["acv-rules"]
+        primary_checker = "acv-rules"
+
+    poc_verdict = classify_poc(poc_exit, poc_output)
+    security_pass = poc_verdict == "blocked"
+    behavior_pass = behavior_exit == 0
+    checker_pass = primary.passed
+    accepted = oracle_ok and security_pass and behavior_pass and checker_pass
+
+    reasons: list[str] = []
+    if not oracle_ok:
+        reasons.append(
+            f"oracle did not reproduce on the vulnerable source (exit {oracle_exit})"
+        )
+    if poc_verdict == "vulnerable":
+        reasons.append("PoC still succeeds")
+    elif poc_verdict == "error":
+        reasons.append("PoC could not reach a verdict: the candidate crashed or the fixture broke")
+    if behavior_exit != 0:
+        reasons.append("functional suite fails")
+    if not checker_pass:
+        ids = ", ".join(sorted({finding.rule_id for finding in primary.blocking}))
+        reasons.append(f"checker findings: {ids or 'unavailable'}")
+
+    return SourceResult(
+        task_id=task.task_id,
+        task_title=task.title,
+        cwe=task.cwe,
+        poc_exit=poc_exit,
+        behavior_exit=behavior_exit,
+        poc_output=poc_output.strip()[-1200:],
+        behavior_output=behavior_output.strip()[-1200:],
+        security_pass=security_pass,
+        behavior_pass=behavior_pass,
+        checker_pass=checker_pass,
+        accepted=accepted,
+        reasons=reasons,
+        findings=primary.findings,
+        checker_tool=primary.tool if primary.available else "acv-rules",
+        checker_results=checker_results,
+        elapsed_ms=int((time.perf_counter() - started) * 1000),
+        poc_verdict=poc_verdict,
+        oracle_exit=oracle_exit,
+        oracle_output=oracle_output.strip()[-1200:],
+        oracle_ok=oracle_ok,
+        diff_applied=diff_applied,
+        input_mode=input_mode,
+        candidate_code=candidate_code,
+        applied_diff=applied_diff,
     )
 
 
@@ -167,53 +294,38 @@ def evaluate_source(
     answer. This is the primitive behind a paste-in patch lab.
     """
 
-    start = time.perf_counter()
+    started = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix="acv-source-") as workdir:
         candidate = Path(workdir) / "worker.py"
         candidate.write_text(code, encoding="utf-8")
+        return _evaluate_source_path(
+            task,
+            candidate,
+            primary_checker,
+            started,
+            diff_applied=False,
+            input_mode="source",
+        )
 
-        poc_exit, poc_output = run_poc(task, candidate)
-        behavior_exit, behavior_output = run_functional(task, candidate)
-        checker_results = run_checkers(candidate)
 
-        primary = checker_results.get(primary_checker)
-        if primary is None or not primary.available:
-            primary = checker_results["acv-rules"]
-            primary_checker = "acv-rules"
+def evaluate_patch(
+    task: TaskSpec,
+    diff: str,
+    primary_checker: CheckerName = "acv-rules",
+) -> SourceResult:
+    """Apply a unified diff to the vulnerable source and run the same gate."""
 
-        security_pass = poc_exit == 1
-        behavior_pass = behavior_exit == 0
-        checker_pass = primary.passed
-        accepted = security_pass and behavior_pass and checker_pass
-
-        reasons: list[str] = []
-        if poc_exit == 0:
-            reasons.append("PoC still succeeds")
-        elif poc_exit != 1:
-            reasons.append(f"PoC did not return a clean verdict (exit {poc_exit})")
-        if behavior_exit != 0:
-            reasons.append("functional suite fails")
-        if not checker_pass:
-            ids = ", ".join(sorted({finding.rule_id for finding in primary.blocking}))
-            reasons.append(f"checker findings: {ids or 'unavailable'}")
-
-        return SourceResult(
-            task_id=task.task_id,
-            task_title=task.title,
-            cwe=task.cwe,
-            poc_exit=poc_exit,
-            behavior_exit=behavior_exit,
-            poc_output=poc_output.strip()[-1200:],
-            behavior_output=behavior_output.strip()[-1200:],
-            security_pass=security_pass,
-            behavior_pass=behavior_pass,
-            checker_pass=checker_pass,
-            accepted=accepted,
-            reasons=reasons,
-            findings=primary.findings,
-            checker_tool=primary.tool if primary.available else "acv-rules",
-            checker_results=checker_results,
-            elapsed_ms=int((time.perf_counter() - start) * 1000),
+    started = time.perf_counter()
+    _validate_worker_diff(diff)
+    with tempfile.TemporaryDirectory(prefix="acv-patch-") as workdir:
+        candidate = _apply_worker_diff(task, diff, Path(workdir))
+        return _evaluate_source_path(
+            task,
+            candidate,
+            primary_checker,
+            started,
+            diff_applied=True,
+            input_mode="diff",
         )
 
 
@@ -302,4 +414,13 @@ def run_audit(
     tasks = discover_tasks(pack_root)
     if task_ids:
         tasks = [task for task in tasks if task.task_id in task_ids]
+    return run_audit_tasks(tasks, primary_checker=primary_checker)
+
+
+def run_audit_tasks(
+    tasks: list[TaskSpec],
+    primary_checker: CheckerName = "acv-rules",
+) -> list[TaskResult]:
+    """Run the two-sided audit over an already discovered task list."""
+
     return [run_task(task, primary_checker=primary_checker) for task in tasks]

@@ -14,6 +14,12 @@ from pathlib import Path
 from ..models import CheckFinding
 
 SECRET_NAME = re.compile(r"(secret|password|passwd|api[_-]?key|token)", re.IGNORECASE)
+HTML_TAG = re.compile(
+    r"<\s*/?\s*(?:script|style|div|span|p|a|img|h[1-6]|body|html|iframe|svg|table|"
+    r"thead|tbody|tr|td|th|ul|ol|li|form|input|button|pre|code|article|section|"
+    r"header|footer|nav|title|meta|link)\b",
+    re.IGNORECASE,
+)
 SQL_METHODS = {"execute", "executemany"}
 DANGEROUS_DESERIALIZERS = {"pickle.loads", "pickle.load", "dill.loads", "dill.load"}
 YAML_LOADS = {"yaml.load", "yaml.load_all"}
@@ -71,22 +77,42 @@ def _dynamic_sql(node: ast.AST) -> bool:
     return False
 
 
+def _has_html_tag(node: ast.AST) -> bool:
+    return any(
+        isinstance(child, ast.Constant)
+        and isinstance(child.value, str)
+        and HTML_TAG.search(child.value) is not None
+        for child in ast.walk(node)
+    )
+
+
 def _returns_html(node: ast.AST) -> bool:
     if isinstance(node, ast.JoinedStr):
-        return any(
-            isinstance(child, ast.Constant) and isinstance(child.value, str) and "<" in child.value
-            for child in ast.walk(node)
-        )
+        return _has_html_tag(node)
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Add):
-        return _contains_string(node) and "<" in ast.unparse(node)
+        return _has_html_tag(node)
     if (
         isinstance(node, ast.Call)
         and isinstance(node.func, ast.Attribute)
         and node.func.attr == "format"
-        and _contains_string(node.func.value)
     ):
-        return "<" in ast.unparse(node.func.value)
+        return _has_html_tag(node.func.value)
     return False
+
+
+def _looks_like_secret(value: str) -> bool:
+    """A conservative signal that a string literal is a credential.
+
+    Tokens, separators, and status strings are common in real code and produce
+    false positives for a name-only rule. A credential-looking value needs some
+    length, no whitespace, and at least one letter and one non-letter character.
+    """
+
+    if len(value) < 8 or any(char.isspace() for char in value):
+        return False
+    has_letter = any(char.isalpha() for char in value)
+    has_other = any(not char.isalnum() for char in value)
+    return has_letter and has_other
 
 
 class BuiltinChecker:
@@ -248,8 +274,13 @@ class BuiltinChecker:
                 if not isinstance(value, ast.Constant) or not isinstance(value.value, str):
                     continue
                 targets = node.targets if isinstance(node, ast.Assign) else [node.target]
-                if any(
-                    SECRET_NAME.search(name) for target in targets for name in _target_names(target)
+                if (
+                    any(
+                        SECRET_NAME.search(name)
+                        for target in targets
+                        for name in _target_names(target)
+                    )
+                    and _looks_like_secret(value.value)
                 ):
                     findings.append(
                         CheckFinding(
@@ -269,7 +300,8 @@ class BuiltinChecker:
                 key = _constant_string(node.args[0])
                 if key is None or not SECRET_NAME.search(key):
                     continue
-                if len(node.args) >= 2 and _constant_string(node.args[1]) is not None:
+                fallback = _constant_string(node.args[1]) if len(node.args) >= 2 else None
+                if fallback is not None and _looks_like_secret(fallback):
                     findings.append(
                         CheckFinding(
                             rule_id="ACV006",

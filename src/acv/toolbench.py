@@ -16,7 +16,7 @@ from typing import Literal
 
 from .checkers.registry import CheckerAdapter, select_adapters
 from .manifest import discover_tasks
-from .models import CheckerResult
+from .models import CheckerResult, TaskSpec
 
 SampleLabel = Literal["vulnerable", "fixed", "benign", "mutant"]
 
@@ -71,8 +71,14 @@ class ToolScore:
 def build_samples(pack: Path) -> list[LabeledSample]:
     """Build the labeled corpus from the task pack."""
 
+    return build_samples_from_tasks(discover_tasks(pack))
+
+
+def build_samples_from_tasks(tasks: list[TaskSpec]) -> list[LabeledSample]:
+    """Build the labeled corpus from an already loaded task list."""
+
     samples: list[LabeledSample] = []
-    for task in discover_tasks(pack):
+    for task in tasks:
         samples.append(
             LabeledSample(
                 sample_id=f"{task.task_id}/vulnerable",
@@ -260,10 +266,11 @@ def score_adapter(adapter: CheckerAdapter, samples: list[LabeledSample]) -> Tool
 def evaluate_checkers(
     pack: Path,
     names: set[str] | None = None,
+    tasks: list[TaskSpec] | None = None,
 ) -> list[ToolScore]:
     """Qualify the requested checkers, or every registered checker."""
 
-    samples = build_samples(pack)
+    samples = build_samples_from_tasks(tasks) if tasks is not None else build_samples(pack)
     return [score_adapter(adapter, samples) for adapter in select_adapters(names)]
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
 
 from pydantic import ValidationError
@@ -71,3 +72,42 @@ def discover_tasks(pack_root: Path) -> list[TaskSpec]:
     if len(ids) != len(set(ids)):
         raise ManifestError("duplicate task ids")
     return tasks
+
+
+def discover_tasks_multi(roots: Iterable[Path]) -> list[TaskSpec]:
+    """Discover tasks from multiple pack roots, rejecting duplicate ids."""
+
+    tasks: list[TaskSpec] = []
+    seen: dict[str, Path] = {}
+    for raw_root in roots:
+        root = raw_root.resolve()
+        if not root.is_dir():
+            continue
+        for child in sorted(root.iterdir()):
+            if not child.is_dir() or not (child / "task.json").exists():
+                continue
+            task = load_task(child)
+            previous = seen.get(task.task_id)
+            if previous is not None:
+                raise ManifestError(
+                    f"duplicate task id {task.task_id!r} in {previous} and {child}"
+                )
+            seen[task.task_id] = child
+            tasks.append(task)
+    if not tasks:
+        raise ManifestError("no tasks found in the configured pack roots")
+    return tasks
+
+
+def find_task(roots: Iterable[Path], task_id: str) -> TaskSpec:
+    """Find a task by id in the configured roots, in root order."""
+
+    if not task_id or "/" in task_id or "\\" in task_id or task_id in {".", ".."}:
+        raise ManifestError(f"invalid task id: {task_id!r}")
+    for root in roots:
+        candidate = (Path(root) / task_id).resolve()
+        if not candidate.is_relative_to(Path(root).resolve()):
+            continue
+        if candidate.is_dir() and (candidate / "task.json").exists():
+            return load_task(candidate)
+    raise ManifestError(f"task not found: {task_id}")
