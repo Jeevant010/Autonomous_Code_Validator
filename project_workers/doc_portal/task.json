@@ -1,0 +1,56 @@
+{
+  "id": "doc_portal",
+  "title": "Multi-file document portal",
+  "cwe": "CWE-22",
+  "summary": "A document service split across a package. The path resolver joins a caller-supplied name to the document root without proving that the result stays inside that root.",
+  "vulnerable": "vulnerable",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "checker_include": [
+    "portal/**/*.py"
+  ],
+  "checker_exclude": [
+    "tests/**",
+    "poc/**",
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "max_files": 400,
+  "max_total_bytes": 2000000,
+  "memory_mb": 512,
+  "poc_timeout": 45,
+  "test_timeout": 180,
+  "tags": [
+    "python",
+    "multi_file",
+    "path_traversal",
+    "portal"
+  ],
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": "Resolve the candidate path and prove it stays inside the document root."
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": "Different implementation using os.path.realpath and commonpath."
+    },
+    {
+      "name": "absolute_only",
+      "kind": "mutant",
+      "path": "mutants/absolute_only",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": "Blocks parent segments but still accepts an absolute path."
+    }
+  ]
+}

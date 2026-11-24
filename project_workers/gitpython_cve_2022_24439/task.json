@@ -1,0 +1,56 @@
+{
+  "id": "gitpython_cve_2022_24439",
+  "title": "GitPython remote-helper command injection",
+  "cwe": "CWE-78",
+  "summary": "GitPython 3.1.29 passes a caller-controlled clone URL and extra git options to git. A remote-helper URL such as ext::sh can execute a shell command. The upstream 3.1.30 fix blocks unsafe protocols and options by default.",
+  "vulnerable": "vulnerable",
+  "poc": "poc/exploit.py",
+  "functional": "tests/test_functional.py",
+  "data_dir": "data",
+  "checker_include": [
+    "git/**/*.py"
+  ],
+  "checker_exclude": [
+    "**/__pycache__/**",
+    "**/.pytest_cache/**"
+  ],
+  "max_files": 400,
+  "max_total_bytes": 2000000,
+  "memory_mb": 512,
+  "poc_timeout": 60,
+  "test_timeout": 180,
+  "tags": [
+    "python",
+    "real_repo",
+    "gitpython",
+    "cve-2022-24439",
+    "command_injection",
+    "multi_file"
+  ],
+  "candidates": [
+    {
+      "name": "gold",
+      "kind": "gold",
+      "path": "fixed",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": "Official GitPython 3.1.30 fix files: reject unsafe protocols and options before invoking git."
+    },
+    {
+      "name": "benign",
+      "kind": "benign",
+      "path": "benign",
+      "expected_security": true,
+      "expected_behavior": true,
+      "note": "A different implementation: one central guard in Git.execute blocks every remote-helper URL."
+    },
+    {
+      "name": "clone_only",
+      "kind": "mutant",
+      "path": "mutants/clone_only",
+      "expected_security": false,
+      "expected_behavior": true,
+      "note": "Fixes Repo.clone_from but leaves Remote.create / Remote.fetch unguarded. The second attack path still works."
+    }
+  ]
+}
