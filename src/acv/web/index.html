@@ -3,91 +3,108 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="dark" />
-    <title>ACV · Patch verifier</title>
+    <meta name="color-scheme" content="light" />
+    <meta
+      name="description"
+      content="ACV verifies security fixes with executable evidence: a trusted exploit, functional tests, and a deterministic checker gate."
+    />
+    <title>ACV · Autonomous Code Validator</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%236ee7b7'/%3E%3Ctext x='32' y='42' font-size='23' text-anchor='middle' font-family='monospace' font-weight='700' fill='%230b1115'%3EACV%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23059669'/%3E%3Cpath d='M20 46 32 18l12 28h-7l-2.4-6H29.4L27 46h-7zm11.2-11h4.6L32 27.6 29.2 35h2z' fill='white'/%3E%3C/svg%3E"
     />
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=20261122" />
   </head>
   <body>
-    <div class="app">
-      <aside class="sidebar">
-        <div class="brand">
-          <div class="brand-mark">A</div>
-          <div class="brand-text">
-            <strong>ACV</strong>
-            <span>patch verifier</span>
-          </div>
-          <span class="build-tag" id="build-version">v0.2.0</span>
-        </div>
+    <a class="skip-link" href="#view-root">Skip to content</a>
 
-        <div class="workspace-box">
-          <span class="workspace-label">workspace</span>
-          <span class="workspace-name">security_workers</span>
-          <span class="workspace-meta" id="workspace-meta">11 fixtures</span>
-        </div>
+    <div class="site-shell">
+      <header class="site-header">
+        <div class="header-inner">
+          <a class="brand" href="/" data-view="overview" aria-label="ACV home">
+            <span class="brand-mark" aria-hidden="true">A</span>
+            <span class="brand-text">
+              <strong>ACV</strong>
+              <span>Autonomous Code Validator</span>
+            </span>
+          </a>
 
-        <nav class="nav" aria-label="Console sections">
-          <div class="nav-group">
-            <div class="nav-group-label">Workspace</div>
-            <button class="nav-item active" data-view="overview">
-              <span class="nav-glyph">⌂</span>Dashboard
-            </button>
-            <button class="nav-item" data-view="tasks">
-              <span class="nav-glyph">⌘</span>Task explorer
-            </button>
-            <button class="nav-item" data-view="patch">
-              <span class="nav-glyph">✎</span>Patch lab
-              <span class="nav-badge">input</span>
-            </button>
-          </div>
-          <div class="nav-group">
-            <div class="nav-group-label">Evaluation</div>
-            <button class="nav-item" data-view="tools">
-              <span class="nav-glyph">◫</span>Checker qualification
-            </button>
-            <button class="nav-item" data-view="audit">
-              <span class="nav-glyph">⊞</span>Audit matrix
-            </button>
-          </div>
-          <div class="nav-group">
-            <div class="nav-group-label">Review</div>
-            <button class="nav-item" data-view="review">
-              <span class="nav-glyph">◎</span>Model review
-            </button>
-          </div>
-        </nav>
+          <nav class="site-nav" aria-label="Main navigation">
+            <button class="nav-item active" data-view="overview">Overview</button>
+            <button class="nav-item" data-view="guide" data-feature="guided_workflow">Guide</button>
+            <button class="nav-item" data-view="tasks">Tasks</button>
+            <button class="nav-item" data-view="projects" data-feature="project_verification">Projects</button>
+            <button class="nav-item" data-view="patch">Verify</button>
 
-        <div class="sidebar-bottom">
-          <div class="env-row"><span>API</span><strong id="env-api">checking</strong></div>
-          <div class="env-row"><span>Model</span><strong id="env-model">checking</strong></div>
-          <div class="env-row"><span>Tasks</span><strong id="env-tasks">—</strong></div>
-          <div class="env-row"><span>Key</span><strong id="env-key">checking</strong></div>
-          <div class="sidebar-note">
-            Local execution. Candidate code runs on this host until the sandbox adapter lands.
+            <details class="nav-menu-wrap">
+              <summary class="nav-item nav-more">Advanced</summary>
+              <div class="nav-menu">
+                <button class="nav-item" data-view="builder" data-feature="task_import">Add a task</button>
+                <button class="nav-item" data-view="repair" data-feature="repair">Generate a fix</button>
+                <button class="nav-item" data-view="tools">Checker tests</button>
+                <button class="nav-item" data-view="audit">Full audit</button>
+                <button class="nav-item" data-view="review">Ask a model</button>
+              </div>
+            </details>
+          </nav>
+
+          <div class="site-actions">
+            <span id="global-status" class="status-pill">connecting</span>
+            <details class="system-menu">
+              <summary class="btn ghost small">System</summary>
+              <div class="system-panel">
+                <div class="system-title">Runtime</div>
+                <div class="env-row"><span>API</span><strong id="env-api">checking</strong></div>
+                <div class="env-row"><span>Model</span><strong id="env-model">checking</strong></div>
+                <div class="env-row"><span>Tasks</span><strong id="env-tasks">—</strong></div>
+                <div class="env-row"><span>Projects</span><strong id="env-projects">—</strong></div>
+                <div class="env-row"><span>Key</span><strong id="env-key">checking</strong></div>
+                <p class="system-note">
+                  The gate runs code with process limits. It is not a network or filesystem jail.
+                </p>
+                <a class="system-link" href="/docs" target="_blank" rel="noreferrer">Open API documentation ↗</a>
+              </div>
+            </details>
+            <button class="btn secondary small" id="refresh-btn" type="button">Refresh</button>
           </div>
         </div>
-      </aside>
+      </header>
 
-      <main class="main">
-        <header class="page-header">
-          <div>
-            <div class="breadcrumb" id="view-eyebrow">workspace / dashboard</div>
-            <h1 id="view-title">Dashboard</h1>
+      <main class="site-main">
+        <div class="page-header">
+          <div class="page-heading">
+            <div class="eyebrow" id="view-eyebrow">start / overview</div>
+            <h1 id="view-title">Overview</h1>
           </div>
           <div class="page-actions">
-            <span id="global-status" class="status-pill">connecting</span>
-            <button class="btn ghost" id="refresh-btn" type="button">Refresh</button>
+            <a class="quiet-link" href="/docs" target="_blank" rel="noreferrer">API docs ↗</a>
           </div>
-        </header>
+        </div>
 
-        <div id="view-root" class="view-root" aria-live="polite"></div>
+        <div id="view-root" class="view-root" aria-live="polite">
+          <div class="loading-panel"><span class="spinner"></span><span>Loading verification console…</span></div>
+        </div>
       </main>
+
+      <footer class="site-footer">
+        <div class="footer-inner">
+          <div class="footer-brand">
+            <span class="brand-mark small" aria-hidden="true">A</span>
+            <div>
+              <strong>ACV</strong>
+              <span>Executable evidence for security fixes</span>
+            </div>
+          </div>
+          <div class="footer-meta">
+            <span id="workspace-meta">loading tasks…</span>
+            <span id="build-version">v0.2.0</span>
+            <a href="/docs" target="_blank" rel="noreferrer">OpenAPI</a>
+          </div>
+        </div>
+      </footer>
     </div>
 
     <div id="toast" class="toast" role="status"></div>
-    <script src="/static/app.js"></script>
+    <script src="/static/app.js?v=20261122"></script>
   </body>
 </html>
