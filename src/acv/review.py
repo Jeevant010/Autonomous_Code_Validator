@@ -217,6 +217,15 @@ def review_by_id(
         task = load_task(pack_root / task_id)
     except ManifestError as exc:
         raise ReviewError(str(exc)) from exc
+    return review_task(task, candidate_name, model=model)
+
+
+def review_task(
+    task: TaskSpec,
+    candidate_name: str,
+    model: str | None = None,
+) -> ReviewResult:
+    """Run one live review for an already loaded task."""
     candidate = find_candidate(task, candidate_name)
     client = GroqClient.from_env(model=model)
     return review_candidate(task, candidate, client)
@@ -224,7 +233,11 @@ def review_by_id(
 
 def task_catalog(pack_root: Path) -> list[dict[str, object]]:
     """Small catalog for the live UI selector."""
-    tasks = discover_tasks(pack_root)
+    return task_catalog_from_tasks(discover_tasks(pack_root))
+
+
+def task_catalog_from_tasks(tasks: list[TaskSpec]) -> list[dict[str, object]]:
+    """Small catalog for an already loaded task list."""
     return [
         {
             "task_id": task.task_id,

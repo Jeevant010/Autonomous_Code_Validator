@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import os
 import time
+from dataclasses import dataclass
 from typing import Any, Literal
 
 import httpx
@@ -127,6 +128,16 @@ class LLMResponse(BaseModel):
     usage: LLMUsage
 
 
+@dataclass(frozen=True)
+class LLMCompletion:
+    """Raw JSON completion plus provider metadata."""
+
+    data: dict[str, Any]
+    model: str
+    latency_ms: int
+    usage: LLMUsage
+
+
 def _extract_json(text: str) -> dict[str, Any]:
     """Parse a JSON object even if the model wrapped it in a code fence."""
     cleaned = text.strip()
@@ -204,8 +215,9 @@ class GroqClient:
         load_dotenv()
         return bool(os.environ.get("GROQ_API_KEY", "").strip())
 
-    def review(self, system_prompt: str, user_prompt: str) -> LLMResponse:
-        """Run one review request and normalize the response."""
+    def _complete(self, system_prompt: str, user_prompt: str) -> LLMCompletion:
+        """Run one chat completion and return parsed JSON plus metadata."""
+
         payload: dict[str, Any] = {
             "model": self.model,
             "messages": [
@@ -262,11 +274,7 @@ class GroqClient:
         if not isinstance(content, str) or not content.strip():
             raise GroqError("Groq returned an empty message")
 
-        try:
-            review = LLMReview.model_validate(_extract_json(content))
-        except ValidationError as exc:
-            raise GroqError(f"Groq returned an invalid review: {exc}") from exc
-
+        parsed = _extract_json(content)
         raw_usage = data.get("usage")
         usage_data = raw_usage if isinstance(raw_usage, dict) else {}
         usage = LLMUsage(
@@ -275,4 +283,27 @@ class GroqClient:
             total_tokens=int(usage_data.get("total_tokens") or 0),
         )
         model = str(data.get("model") or self.model)
-        return LLMResponse(review=review, model=model, latency_ms=latency_ms, usage=usage)
+        return LLMCompletion(
+            data=parsed,
+            model=model,
+            latency_ms=latency_ms,
+            usage=usage,
+        )
+
+    def review(self, system_prompt: str, user_prompt: str) -> LLMResponse:
+        """Run one review request and normalize the response."""
+        completion = self._complete(system_prompt, user_prompt)
+        try:
+            review = LLMReview.model_validate(completion.data)
+        except ValidationError as exc:
+            raise GroqError(f"Groq returned an invalid review: {exc}") from exc
+        return LLMResponse(
+            review=review,
+            model=completion.model,
+            latency_ms=completion.latency_ms,
+            usage=completion.usage,
+        )
+
+    def complete_json(self, system_prompt: str, user_prompt: str) -> LLMCompletion:
+        """Run one JSON completion for callers that define their own schema."""
+        return self._complete(system_prompt, user_prompt)
