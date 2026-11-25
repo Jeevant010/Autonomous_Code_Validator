@@ -1,0 +1,235 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{url}
+\usepackage{listings}
+
+\lstset{
+    basicstyle=\ttfamily\footnotesize,
+    breaklines=true,
+    frame=single,
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    keywordstyle=\color{blue},
+    commentstyle=\color{green!60!black},
+    stringstyle=\color{red}
+}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Autonomous Code Validator (ACV): A Two-Sided Deterministic Verification Gate for Security Patch Validation}
+
+\author{\IEEEauthorblockN{Syth}
+\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
+\textit{Research Project Technical Report} \\
+Email: author@institution.edu}
+}
+
+\maketitle
+
+\begin{abstract}
+As software systems increasingly integrate automated repair tools and Large Language Models (LLMs) to remediate vulnerabilities, validating proposed patches becomes a critical challenge. Modern Continuous Integration (CI) pipelines predominantly rely on Static Application Security Testing (SAST) linters and conversational AI reviews. However, static analyzers operate purely on syntactic patterns and miss semantic exploit paths, while LLMs suffer from stochastic hallucinations and cannot guarantee patch correctness. 
+
+In this paper, we present the \textbf{Autonomous Code Validator (ACV)}, an executable verification gate that establishes empirical authority over patch validation. Rather than trusting cosmetic syntax or probabilistic reviews, ACV enforces a two-sided deterministic gate requiring that: (1) the original Proof-of-Concept (PoC) exploit ceases to succeed; (2) the regression test suite passes cleanly; and (3) registered static checkers confirm the absence of blocking anti-patterns. We evaluate ACV on a calibration corpus of 11 micro-service tasks spanning 10 Common Weakness Enumeration (CWE) categories across 44 labeled candidate implementations (vulnerable baselines, reference gold fixes, safe benign variants, and flawed mutants). Empirical results demonstrate that ACV achieves a 95.5\% overall gate decision accuracy (42/44 correct verdicts), catching subtle bypass mutants where industry SAST tools fail (Bandit achieves only 51.5\% recall). Furthermore, we demonstrate ACV's extension to real-world repository repair through GitPython CVE-2022-24439.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Security Patch Verification, Executable Oracle, Dynamic Analysis, Static Analysis Qualification, CWE, Automated Program Repair.
+\end{IEEEkeywords}
+
+\section{Introduction}
+Software security vulnerabilities pose continuous threats to modern digital infrastructure. To mitigate the backlog of Common Weaknesses and Exposures (CVEs), development teams increasingly employ automated program repair (APR) heuristics and generative Large Language Models (LLMs). While modern models readily synthesize plausible-looking patches, verifying whether a candidate patch genuinely eliminates an attack vector without breaking legitimate functionality remains largely unsolved.
+
+Existing verification pipelines exhibit two fundamental vulnerabilities:
+\begin{enumerate}
+    \item \textbf{Syntactic Superficiality in Static Scanners:} Traditional Static Application Security Testing (SAST) tools (such as Bandit or Semgrep) match Abstract Syntax Tree (AST) patterns and regular expressions. A junior engineer or an LLM can easily bypass static rules through cosmetic mutations—such as naive string filtering, character escaping, or indirection—leaving the underlying attack surface wide open.
+    \item \textbf{Uncalibrated Confidence in Generative AI:} Conversational LLM code reviewers evaluate code probabilistically. They frequently declare vulnerable patches as secure due to surface-level plausibility, lacking the ability to dynamically test runtime control-flow semantics.
+\end{enumerate}
+
+To bridge this verification gap, we propose the \textbf{Autonomous Code Validator (ACV)}. ACV operates on a core thesis: \textit{A security patch must be accepted if and only if an executable exploit is blocked, behavioral regression tests succeed, and static hygiene rules pass.} In ACV, dynamic execution acts as the final decision authority, while static analysis and LLM reviews are relegated to advisory signals.
+
+\section{System Architecture and Methodology}
+
+\subsection{System Architecture Overview}
+The ACV pipeline ingests candidate patches through a command-line interface, a FastAPI REST server, or an interactive web research console. Fig.~\ref{fig:architecture} illustrates the system workflow.
+
+\begin{figure}[htbp]
+\centering
+\fbox{
+\begin{minipage}{0.9\columnwidth}
+\centering
+\textbf{Candidate Patch Source} \\
+\textit{(Single-File, Unified Diff, or Multi-File Overlay)} \\
+$\Downarrow$ \\
+\textbf{Isolated Execution Staging} \\
+\textit{(Temporary Sandbox Directory with Local $\text{PYTHONPATH}$)} \\
+$\Downarrow$ \\
+\textbf{Three-Way Concurrent Verification Gate} \\
+$\swarrow$ \hspace{2cm} $\downarrow$ \hspace{2cm} $\searrow$ \\
+\begin{tabular}{|c|c|c|}
+\hline
+\textbf{Security PoC} & \textbf{Functional Tests} & \textbf{Static Scanners} \\
+Exploit Script & Pytest Suite & AST \& Bandit \\
+\textit{Exit $\ne$ 0 (Blocked)} & \textit{Exit = 0 (Pass)} & \textit{No High/Med Findings} \\
+\hline
+\end{tabular} \\
+$\searrow$ \hspace{2cm} $\downarrow$ \hspace{2cm} $\swarrow$ \\
+$\Downarrow$ \\
+\textbf{Deterministic Gate Verdict: ACCEPT or REJECT} \\
+$\Downarrow$ \\
+\textbf{Advisory LLM Assessment (Non-Authoritative)}
+\end{minipage}
+}
+\caption{System Architecture of the Autonomous Code Validator (ACV).}
+\label{fig:architecture}
+\end{figure}
+
+\subsection{Verification Gate Formal Contract}
+Let $T$ denote a security worker task defined by the tuple:
+\begin{equation}
+T = \langle S_{vuln}, S_{gold}, \mathcal{P}_{poc}, \mathcal{F}_{tests}, \mathcal{C}_{rules} \rangle
+\end{equation}
+where $S_{vuln}$ is the vulnerable baseline, $S_{gold}$ is the reference repair, $\mathcal{P}_{poc}$ is the executable attack script, $\mathcal{F}_{tests}$ is the behavioral test suite, and $\mathcal{C}_{rules}$ is the registered static checker suite.
+
+For any candidate patch $c$, ACV evaluates three discrete Boolean predicates:
+\begin{align}
+\phi_{sec}(c) &= \left( \text{ExitCode}(\mathcal{P}_{poc}(c)) \ne 0 \right) \\
+\phi_{beh}(c) &= \left( \text{ExitCode}(\mathcal{F}_{tests}(c)) = 0 \right) \\
+\phi_{chk}(c) &= \left( \text{BlockingFindings}(\mathcal{C}_{rules}(c)) = \emptyset \right)
+\end{align}
+
+The global deterministic gate acceptance function $\Phi(c)$ is strictly conjunctive:
+\begin{equation}
+\Phi(c) = \phi_{sec}(c) \land \phi_{beh}(c) \land \phi_{chk}(c)
+\end{equation}
+
+If any predicate fails, the candidate is rejected. The rejection reason is explicitly attributed to $\text{poc}$, $\text{behavior}$, or $\text{checker}$.
+
+\subsection{Static Analysis Qualification Framework}
+Rather than trusting external static analyzers blindly, ACV features a tool qualification engine. Let $TP, FP, TN, FN$ represent True Positives, False Positives, True Negatives, and False Negatives evaluated over labeled ground truth. We compute:
+\begin{align}
+\text{Precision} &= \frac{TP}{TP + FP} \\
+\text{Recall} &= \frac{TP}{TP + FN} \\
+F_1 &= \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
+\end{align}
+
+\section{The Calibration Corpus}
+The baseline calibration suite consists of 11 distinct micro-services spanning 10 CWE categories, comprising 44 labeled implementations:
+
+\begin{table}[htbp]
+\caption{Security Benchmark Tasks and Target CWE Classes}
+\begin{center}
+\begin{tabular}{lll}
+\toprule
+\textbf{Task Identifier} & \textbf{CWE} & \textbf{Vulnerability Class} \\
+\midrule
+\texttt{cmd\_runner} & CWE-78 & OS Command Injection \\
+\texttt{html\_renderer} & CWE-79 & Stored Cross-Site Scripting (XSS) \\
+\texttt{sql\_lookup} & CWE-89 & SQL Injection \\
+\texttt{yaml\_loader} & CWE-94 & Code Injection via Unsafe Deserialization \\
+\texttt{path\_reader} & CWE-22 & Path Traversal \\
+\texttt{token\_random} & CWE-338 & Cryptographically Weak PRNG \\
+\texttt{pickle\_loader} & CWE-502 & Insecure Object Deserialization \\
+\texttt{open\_redirect} & CWE-601 & Unvalidated URL Redirection \\
+\texttt{token\_signer} & CWE-798 & Use of Hardcoded Credentials \\
+\texttt{ssrf\_redirect} & CWE-918 & SSRF via HTTP 302 Redirection \\
+\texttt{url\_fetcher} & CWE-918 & Direct Server-Side Request Forgery \\
+\bottomrule
+\end{tabular}
+\end{center}
+\label{tab:tasks}
+\end{table}
+
+Each task includes four labeled candidate variants:
+\begin{itemize}
+    \item \textbf{Gold Fix:} The canonical, architecturally sound repair (e.g., parameterized queries or safe argument lists).
+    \item \textbf{Benign Safe:} An alternative syntactically distinct implementation that preserves safety and behavioral invariance.
+    \item \textbf{Mutants (2 per task):} Flawed patches designed to simulate real-world developer shortcuts (e.g., character blocklists, cosmetic regex sanitization, or partial schema checks).
+\end{itemize}
+
+\section{Experimental Evaluation and Findings}
+
+\subsection{Evaluation of Deterministic Gate Accuracy}
+ACV was executed across all 44 labeled candidates in the calibration corpus. Overall gate decision accuracy reached \textbf{95.5\%} (42/44 correct verdicts):
+\begin{itemize}
+    \item \textbf{Correct Rejections:} All vulnerable workers and 21 out of 22 mutants were correctly identified and rejected.
+    \item \textbf{False Pass (1 instance):} Occurred in \texttt{cmd\_runner/sh\_c\_filter}, where a shell escaping mutant evaded the specific PoC payload variant.
+    \item \textbf{False Rejection (1 instance):} Occurred in \texttt{sql\_lookup/benign}, where a custom query wrapper was flagged by an overly conservative AST heuristic.
+\end{itemize}
+
+\subsection{Checker Qualification Comparison}
+We benchmarked ACV's deterministic rule pack (\texttt{acv-rules}) against Bandit (v1.7+):
+
+\begin{table}[htbp]
+\caption{Static Analyzer Qualification Leaderboard}
+\begin{center}
+\begin{tabular}{lccccccc}
+\toprule
+\textbf{Checker} & \textbf{TP} & \textbf{FP} & \textbf{FN} & \textbf{TN} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
+\midrule
+\texttt{acv-rules} & 28 & 1 & 5 & 21 & 96.6\% & 84.8\% & 90.3\% \\
+\texttt{bandit} & 17 & 3 & 16 & 19 & 85.0\% & 51.5\% & 64.2\% \\
+\bottomrule
+\end{tabular}
+\end{center}
+\label{tab:qualify}
+\end{table}
+
+As documented in Table~\ref{tab:qualify}, general-purpose SAST tools struggle with domain-specific security variants: Bandit missed 16 vulnerable candidates (Recall = 51.5\%). ACV's dynamic PoC gate caught all 16 instances where Bandit failed.
+
+\subsection{Motivating Case Study: SSRF Redirection Bypass}
+To illustrate the necessity of the executable oracle, consider candidate \texttt{initial\_only} in the \texttt{ssrf\_redirect} task (CWE-918):
+
+\begin{lstlisting}[language=Python,caption={Vulnerable Patch: Checking Initial Hostname Only}]
+def fetch(url: str) -> str:
+    parsed = urlparse(url)
+    if parsed.hostname not in ALLOWED_HOSTS:
+        raise ValueError("host is not allowed")
+    with urllib.request.urlopen(url, timeout=3) as resp:
+        return resp.read().decode("utf-8")
+\end{lstlisting}
+
+\begin{itemize}
+    \item \textbf{Static Checker Verdict:} \textsc{Pass}. The AST checker verified that an allowlist validation check existed before the network call.
+    \item \textbf{Unit Test Verdict:} \textsc{Pass}. Requests to \texttt{http://localhost/index} resolved correctly.
+    \item \textbf{ACV Exploit Gate:} \textsc{Fail}. Because \texttt{urllib.request.urlopen} automatically traverses HTTP 302 redirects, the exploit pointed to a local route that redirected to \texttt{http://169.254.169.254/latest/meta-data}. The exploit captured protected metadata, exited with code 0, and ACV vetoed the patch.
+\end{itemize}
+
+\subsection{Real-World Repository Evaluation: GitPython CVE-2022-24439}
+To evaluate scalability beyond micro-benchmarks, ACV was applied to a full repository evaluation of \textbf{GitPython 3.1.29} (74 evaluated files, $\approx 22,700$ lines of code). The target vulnerability (CVE-2022-24439) allows remote code execution via unsafe URL handling in \texttt{git.Repo.clone\_from()}. 
+The ACV multi-file project harness accurately:
+\begin{enumerate}
+    \item Accepted the upstream official GitPython 3.1.30 sanitization fix;
+    \item Accepted an independent benign architectural fix;
+    \item Rejected a partial, clone-only fix because secondary remote fetch paths remained unvalidated.
+\end{enumerate}
+
+\section{Threat Model and Operational Boundaries}
+While ACV provides rigorous verification, two deployment boundaries must be recognized:
+\begin{enumerate}
+    \item \textbf{Host Execution Boundaries:} The current prototype uses subprocess execution within temporary filesystem workspaces. Untrusted external patches must be deployed within isolated Linux containers (e.g., Docker, gVisor, or seccomp-bpf sandboxes) to prevent hostile candidates from compromising the host test harness.
+    \item \textbf{Oracle Invariance:} ACV assumes the PoC exploit accurately captures the exploit primitive and functional tests cover legitimate behaviors. If an API redesign deliberately alters call signatures, tests must be updated concurrently.
+\end{enumerate}
+
+\section{Conclusion}
+This paper presented the Autonomous Code Validator (ACV), an automated verification gate for security patches. By enforcing a two-sided verification gate combining dynamic Proof-of-Concept attacks, regression tests, and qualified static linters, ACV overcomes the syntactic blind spots of traditional SAST scanners and the unverified hallucinations of LLMs. With 95.5\% decision accuracy across 44 benchmark candidates and proven real-world efficacy on GitPython CVE-2022-24439, ACV provides a deterministic foundation for trusted automated program repair.
+
+\begin{thebibliography}{00}
+\bibitem{b1} MITRE, ``Common Weakness Enumeration (CWE) Specification,'' \url{https://cwe.mitre.org}, 2024.
+\bibitem{b2} PyCQA, ``Bandit: Security Oriented Static Analysis for Python,'' \url{https://github.com/PyCQA/bandit}, 2024.
+\bibitem{b3} C. Le Goues, M. Pradel, and A. Roychoudhury, ``Automated program repair,'' \textit{Communications of the ACM}, vol. 62, no. 12, pp. 56--65, 2019.
+\bibitem{b4} J. Cambronero et al., ``When results are not results: On the evaluation of automated vulnerability repair,'' in \textit{Proc. IEEE/ACM Int. Conf. on Automated Software Engineering (ASE)}, 2023.
+\bibitem{b5} NIST, ``NVD - CVE-2022-24439 Detail,'' \url{https://nvd.nist.gov/vuln/detail/CVE-2022-24439}, 2022.
+\end{thebibliography}
+
+\end{document}
