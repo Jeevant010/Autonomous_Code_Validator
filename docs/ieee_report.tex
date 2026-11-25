@@ -10,16 +10,21 @@
 \usepackage{booktabs}
 \usepackage{url}
 \usepackage{listings}
+\usepackage{tabularx}
 
 \lstset{
-    basicstyle=\ttfamily\footnotesize,
+    basicstyle=\ttfamily\scriptsize,
     breaklines=true,
     frame=single,
     numbers=left,
     numberstyle=\tiny\color{gray},
-    keywordstyle=\color{blue},
-    commentstyle=\color{green!60!black},
-    stringstyle=\color{red}
+    keywordstyle=\color{blue}\bfseries,
+    commentstyle=\color{green!60!black}\itshape,
+    stringstyle=\color{red},
+    showstringspaces=false,
+    tabsize=2,
+    aboveskip=4pt,
+    belowskip=4pt
 }
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
@@ -29,10 +34,18 @@
 
 \title{Autonomous Code Validator (ACV): A Two-Sided Deterministic Verification Gate for Security Patch Validation}
 
-\author{\IEEEauthorblockN{Syth}
-\IEEEauthorblockA{\textit{Department of Computer Science and Engineering} \\
-\textit{Research Project Technical Report} \\
-Email: author@institution.edu}
+\author{
+    \IEEEauthorblockN{Jeevant}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    Email: jeevant@institution.edu}
+    \and
+    \IEEEauthorblockN{Deepesh Dangi}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    Email: deepesh@institution.edu}
+    \and
+    \IEEEauthorblockN{Abhishek Yadav}
+    \IEEEauthorblockA{\textit{Dept. of Computer Science \& Engineering} \\
+    Email: abhishek@institution.edu}
 }
 
 \maketitle
@@ -52,54 +65,62 @@ Software security vulnerabilities pose continuous threats to modern digital infr
 
 Existing verification pipelines exhibit two fundamental vulnerabilities:
 \begin{enumerate}
-    \item \textbf{Syntactic Superficiality in Static Scanners:} Traditional Static Application Security Testing (SAST) tools (such as Bandit or Semgrep) match Abstract Syntax Tree (AST) patterns and regular expressions. A junior engineer or an LLM can easily bypass static rules through cosmetic mutations—such as naive string filtering, character escaping, or indirection—leaving the underlying attack surface wide open.
+    \item \textbf{Syntactic Superficiality in Static Scanners:} Traditional Static Application Security Testing (SAST) tools (such as Bandit or Semgrep) match Abstract Syntax Tree (AST) patterns and regular expressions. A junior engineer or an LLM can easily bypass static rules through cosmetic mutations---such as naive string filtering, character escaping, or indirection---leaving the underlying attack surface wide open.
     \item \textbf{Uncalibrated Confidence in Generative AI:} Conversational LLM code reviewers evaluate code probabilistically. They frequently declare vulnerable patches as secure due to surface-level plausibility, lacking the ability to dynamically test runtime control-flow semantics.
 \end{enumerate}
 
 To bridge this verification gap, we propose the \textbf{Autonomous Code Validator (ACV)}. ACV operates on a core thesis: \textit{A security patch must be accepted if and only if an executable exploit is blocked, behavioral regression tests succeed, and static hygiene rules pass.} In ACV, dynamic execution acts as the final decision authority, while static analysis and LLM reviews are relegated to advisory signals.
 
+%% -------------------------------------------------------------
+%% TWO-COLUMN SPANNING FIGURE TO PREVENT OVERLAP
+%% -------------------------------------------------------------
+\begin{figure*}[t]
+\centering
+\fbox{
+\begin{minipage}{0.96\textwidth}
+\centering \vspace{1mm}
+\textbf{Candidate Patch Source} \textit{(Single-File, Unified Diff, or Multi-File Overlay)} \\
+$\Downarrow$ \\
+\textbf{Isolated Execution Staging} \textit{(Temporary Sandbox Directory with Dynamic $\text{PYTHONPATH}$ Isolation)} \\
+$\Downarrow$ \\
+\textbf{Three-Way Concurrent Verification Gate} \\
+\vspace{1mm}
+\begin{tabular}{ccc}
+$\swarrow$ & $\downarrow$ & $\searrow$ \\
+\fbox{\parbox{0.28\textwidth}{\centering \textbf{1. Security PoC}\\\footnotesize Dedicated Exploit Script\\\textit{Exit $\ne$ 0 (Attack Blocked)}}} &
+\fbox{\parbox{0.28\textwidth}{\centering \textbf{2. Functional Tests}\\\footnotesize Pytest Regression Suite\\\textit{Exit = 0 (Behavior Preserved)}}} &
+\fbox{\parbox{0.28\textwidth}{\centering \textbf{3. Static Scanners}\\\footnotesize AST Engine \& Bandit\\\textit{No Medium/High Findings}}} \\
+$\searrow$ & $\downarrow$ & $\swarrow$
+\end{tabular} \\
+\vspace{1mm}
+$\Downarrow$ \\
+\textbf{Deterministic Gate Verdict: \textsc{ACCEPT} or \textsc{REJECT}} \\
+$\Downarrow$ \\
+\textbf{Advisory LLM Review (Non-Authoritative Second Opinion)} \vspace{1mm}
+\end{minipage}
+}
+\caption{System Architecture of the Autonomous Code Validator (ACV), showing isolated staging and the two-sided concurrent gate.}
+\label{fig:architecture}
+\end{figure*}
+
 \section{System Architecture and Methodology}
 
 \subsection{System Architecture Overview}
-The ACV pipeline ingests candidate patches through a command-line interface, a FastAPI REST server, or an interactive web research console. Fig.~\ref{fig:architecture} illustrates the system workflow.
+The ACV pipeline ingests candidate patches through a command-line interface, a FastAPI REST server, or an interactive web research console. As shown in Fig.~\ref{fig:architecture}, the candidate source is unpacked into an isolated execution directory with dynamically prepended Python import paths.
 
-\begin{figure}[htbp]
-\centering
-\fbox{
-\begin{minipage}{0.9\columnwidth}
-\centering
-\textbf{Candidate Patch Source} \\
-\textit{(Single-File, Unified Diff, or Multi-File Overlay)} \\
-$\Downarrow$ \\
-\textbf{Isolated Execution Staging} \\
-\textit{(Temporary Sandbox Directory with Local $\text{PYTHONPATH}$)} \\
-$\Downarrow$ \\
-\textbf{Three-Way Concurrent Verification Gate} \\
-$\swarrow$ \hspace{2cm} $\downarrow$ \hspace{2cm} $\searrow$ \\
-\begin{tabular}{|c|c|c|}
-\hline
-\textbf{Security PoC} & \textbf{Functional Tests} & \textbf{Static Scanners} \\
-Exploit Script & Pytest Suite & AST \& Bandit \\
-\textit{Exit $\ne$ 0 (Blocked)} & \textit{Exit = 0 (Pass)} & \textit{No High/Med Findings} \\
-\hline
-\end{tabular} \\
-$\searrow$ \hspace{2cm} $\downarrow$ \hspace{2cm} $\swarrow$ \\
-$\Downarrow$ \\
-\textbf{Deterministic Gate Verdict: ACCEPT or REJECT} \\
-$\Downarrow$ \\
-\textbf{Advisory LLM Assessment (Non-Authoritative)}
-\end{minipage}
-}
-\caption{System Architecture of the Autonomous Code Validator (ACV).}
-\label{fig:architecture}
-\end{figure}
+The system then initiates three concurrent evaluations:
+\begin{enumerate}
+    \item \textbf{Security Oracle ($\mathcal{P}_{poc}$):} Spawns the dedicated exploit script against the staged worker.
+    \item \textbf{Behavioral Oracle ($\mathcal{F}_{tests}$):} Runs the functional unit test suite using \texttt{pytest}.
+    \item \textbf{Checker Registry ($\mathcal{C}_{rules}$):} Scans code ASTs using built-in rules (\texttt{acv-rules}) and Bandit.
+\end{enumerate}
 
 \subsection{Verification Gate Formal Contract}
-Let $T$ denote a security worker task defined by the tuple:
+Let $T$ denote a security task:
 \begin{equation}
 T = \langle S_{vuln}, S_{gold}, \mathcal{P}_{poc}, \mathcal{F}_{tests}, \mathcal{C}_{rules} \rangle
 \end{equation}
-where $S_{vuln}$ is the vulnerable baseline, $S_{gold}$ is the reference repair, $\mathcal{P}_{poc}$ is the executable attack script, $\mathcal{F}_{tests}$ is the behavioral test suite, and $\mathcal{C}_{rules}$ is the registered static checker suite.
+where $S_{vuln}$ is the vulnerable baseline, $S_{gold}$ is the canonical repair, $\mathcal{P}_{poc}$ is the exploit, $\mathcal{F}_{tests}$ is the test suite, and $\mathcal{C}_{rules}$ is the checker suite.
 
 For any candidate patch $c$, ACV evaluates three discrete Boolean predicates:
 \begin{align}
@@ -112,14 +133,12 @@ The global deterministic gate acceptance function $\Phi(c)$ is strictly conjunct
 \begin{equation}
 \Phi(c) = \phi_{sec}(c) \land \phi_{beh}(c) \land \phi_{chk}(c)
 \end{equation}
-
-If any predicate fails, the candidate is rejected. The rejection reason is explicitly attributed to $\text{poc}$, $\text{behavior}$, or $\text{checker}$.
+If any predicate evaluates to \textsc{False}, the patch is rejected.
 
 \subsection{Static Analysis Qualification Framework}
 Rather than trusting external static analyzers blindly, ACV features a tool qualification engine. Let $TP, FP, TN, FN$ represent True Positives, False Positives, True Negatives, and False Negatives evaluated over labeled ground truth. We compute:
 \begin{align}
-\text{Precision} &= \frac{TP}{TP + FP} \\
-\text{Recall} &= \frac{TP}{TP + FN} \\
+\text{Precision} &= \frac{TP}{TP + FP}, \quad \text{Recall} = \frac{TP}{TP + FN} \\
 F_1 &= \frac{2 \cdot \text{Precision} \cdot \text{Recall}}{\text{Precision} + \text{Recall}}
 \end{align}
 
@@ -128,15 +147,17 @@ The baseline calibration suite consists of 11 distinct micro-services spanning 1
 
 \begin{table}[htbp]
 \caption{Security Benchmark Tasks and Target CWE Classes}
-\begin{center}
-\begin{tabular}{lll}
+\label{tab:tasks}
+\centering
+\scriptsize
+\begin{tabularx}{\columnwidth}{llX}
 \toprule
 \textbf{Task Identifier} & \textbf{CWE} & \textbf{Vulnerability Class} \\
 \midrule
 \texttt{cmd\_runner} & CWE-78 & OS Command Injection \\
 \texttt{html\_renderer} & CWE-79 & Stored Cross-Site Scripting (XSS) \\
 \texttt{sql\_lookup} & CWE-89 & SQL Injection \\
-\texttt{yaml\_loader} & CWE-94 & Code Injection via Unsafe Deserialization \\
+\texttt{yaml\_loader} & CWE-94 & Unsafe Deserialization \\
 \texttt{path\_reader} & CWE-22 & Path Traversal \\
 \texttt{token\_random} & CWE-338 & Cryptographically Weak PRNG \\
 \texttt{pickle\_loader} & CWE-502 & Insecure Object Deserialization \\
@@ -145,14 +166,12 @@ The baseline calibration suite consists of 11 distinct micro-services spanning 1
 \texttt{ssrf\_redirect} & CWE-918 & SSRF via HTTP 302 Redirection \\
 \texttt{url\_fetcher} & CWE-918 & Direct Server-Side Request Forgery \\
 \bottomrule
-\end{tabular}
-\end{center}
-\label{tab:tasks}
+\end{tabularx}
 \end{table}
 
 Each task includes four labeled candidate variants:
 \begin{itemize}
-    \item \textbf{Gold Fix:} The canonical, architecturally sound repair (e.g., parameterized queries or safe argument lists).
+    \item \textbf{Gold Fix:} The canonical, architecturally sound repair.
     \item \textbf{Benign Safe:} An alternative syntactically distinct implementation that preserves safety and behavioral invariance.
     \item \textbf{Mutants (2 per task):} Flawed patches designed to simulate real-world developer shortcuts (e.g., character blocklists, cosmetic regex sanitization, or partial schema checks).
 \end{itemize}
@@ -172,7 +191,9 @@ We benchmarked ACV's deterministic rule pack (\texttt{acv-rules}) against Bandit
 
 \begin{table}[htbp]
 \caption{Static Analyzer Qualification Leaderboard}
-\begin{center}
+\label{tab:qualify}
+\centering
+\scriptsize
 \begin{tabular}{lccccccc}
 \toprule
 \textbf{Checker} & \textbf{TP} & \textbf{FP} & \textbf{FN} & \textbf{TN} & \textbf{Precision} & \textbf{Recall} & \textbf{F1} \\
@@ -181,16 +202,17 @@ We benchmarked ACV's deterministic rule pack (\texttt{acv-rules}) against Bandit
 \texttt{bandit} & 17 & 3 & 16 & 19 & 85.0\% & 51.5\% & 64.2\% \\
 \bottomrule
 \end{tabular}
-\end{center}
-\label{tab:qualify}
 \end{table}
 
 As documented in Table~\ref{tab:qualify}, general-purpose SAST tools struggle with domain-specific security variants: Bandit missed 16 vulnerable candidates (Recall = 51.5\%). ACV's dynamic PoC gate caught all 16 instances where Bandit failed.
 
 \subsection{Motivating Case Study: SSRF Redirection Bypass}
-To illustrate the necessity of the executable oracle, consider candidate \texttt{initial\_only} in the \texttt{ssrf\_redirect} task (CWE-918):
+Consider candidate \texttt{initial\_only} in the \texttt{ssrf\_redirect} task (CWE-918). To prevent column page-breaks, the patch implementation is shown in Listing~\ref{lst:ssrf}.
 
-\begin{lstlisting}[language=Python,caption={Vulnerable Patch: Checking Initial Hostname Only}]
+\begin{figure}[htbp]
+\centering
+\begin{minipage}{\columnwidth}
+\begin{lstlisting}[language=Python,caption={Vulnerable Patch: Checking Initial Hostname Only},label={lst:ssrf}]
 def fetch(url: str) -> str:
     parsed = urlparse(url)
     if parsed.hostname not in ALLOWED_HOSTS:
@@ -198,10 +220,12 @@ def fetch(url: str) -> str:
     with urllib.request.urlopen(url, timeout=3) as resp:
         return resp.read().decode("utf-8")
 \end{lstlisting}
+\end{minipage}
+\end{figure}
 
 \begin{itemize}
     \item \textbf{Static Checker Verdict:} \textsc{Pass}. The AST checker verified that an allowlist validation check existed before the network call.
-    \item \textbf{Unit Test Verdict:} \textsc{Pass}. Requests to \texttt{http://localhost/index} resolved correctly.
+    \item \textbf{Unit Test Verdict:} \textsc{Pass}. Direct requests to \texttt{http://localhost/index} resolved correctly.
     \item \textbf{ACV Exploit Gate:} \textsc{Fail}. Because \texttt{urllib.request.urlopen} automatically traverses HTTP 302 redirects, the exploit pointed to a local route that redirected to \texttt{http://169.254.169.254/latest/meta-data}. The exploit captured protected metadata, exited with code 0, and ACV vetoed the patch.
 \end{itemize}
 
