@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Autonomous Code Validator - Comprehensive Project Evaluation Report</title>
+<title>Autonomous Code Validator (ACV) - Comprehensive Project Evaluation Report</title>
 <style>
   @page {
     size: A4;
-    margin: 18mm 16mm 18mm 16mm;
+    margin: 16mm 14mm 16mm 14mm;
     @bottom-right {
       content: counter(page);
     }
@@ -14,7 +14,9 @@
   
   :root {
     --primary: #0f172a;
+    --primary-light: #1e293b;
     --accent: #2563eb;
+    --accent-dark: #1d4ed8;
     --success: #0f766e;
     --success-bg: #f0fdfa;
     --danger: #b91c1c;
@@ -30,8 +32,8 @@
   body {
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
     color: var(--primary);
-    line-height: 1.5;
-    font-size: 13px;
+    line-height: 1.45;
+    font-size: 12.5px;
     margin: 0;
     padding: 0;
     background: #fff;
@@ -39,64 +41,102 @@
 
   .cover {
     border-bottom: 2px solid var(--primary);
-    padding-bottom: 20px;
-    margin-bottom: 24px;
+    padding-bottom: 16px;
+    margin-bottom: 20px;
   }
 
   .title {
-    font-size: 26px;
+    font-size: 24px;
     font-weight: 800;
     letter-spacing: -0.03em;
     color: var(--primary);
-    margin: 0 0 6px 0;
+    margin: 0 0 4px 0;
   }
 
   .subtitle {
-    font-size: 14px;
+    font-size: 13.5px;
     color: var(--muted);
     font-weight: 500;
-    margin: 0 0 16px 0;
+    margin: 0 0 14px 0;
   }
 
   .meta-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
+    gap: 10px;
     background: var(--bg-alt);
-    padding: 12px 16px;
+    padding: 10px 14px;
     border-radius: 8px;
     border: 1px solid var(--border);
-    font-size: 12px;
+    font-size: 11.5px;
   }
 
   .meta-item strong {
     display: block;
     color: var(--muted);
-    font-size: 10.5px;
+    font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    margin-bottom: 2px;
+  }
+
+  .team-panel {
+    display: grid;
+    grid-template-columns: 2fr 1.5fr;
+    gap: 12px;
+    background: #f1f5f9;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 14px;
+    margin-top: 10px;
+    font-size: 11.5px;
+  }
+
+  .team-panel strong {
+    color: var(--primary);
+    display: block;
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 3px;
+  }
+
+  .team-list {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .team-member {
+    font-weight: 600;
+    color: #1e3a8a;
+  }
+
+  .team-member span {
+    font-weight: 400;
+    color: #64748b;
   }
 
   h2 {
-    font-size: 17px;
+    font-size: 15px;
     font-weight: 700;
     color: var(--primary);
     border-bottom: 1.5px solid var(--border);
-    padding-bottom: 4px;
-    margin: 22px 0 10px 0;
+    padding-bottom: 3px;
+    margin: 18px 0 8px 0;
     page-break-after: avoid;
   }
 
   h3 {
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     color: var(--accent);
-    margin: 14px 0 6px 0;
+    margin: 12px 0 4px 0;
     page-break-after: avoid;
   }
 
   p {
-    margin: 0 0 10px 0;
+    margin: 0 0 8px 0;
     color: #1e293b;
     text-align: justify;
   }
@@ -104,36 +144,36 @@
   .highlight-card {
     background: #eff6ff;
     border-left: 4px solid var(--accent);
-    padding: 10px 14px;
-    margin: 12px 0;
+    padding: 8px 12px;
+    margin: 10px 0;
     border-radius: 0 6px 6px 0;
-    font-size: 12.5px;
+    font-size: 11.5px;
   }
 
   .cards-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
-    gap: 10px;
-    margin: 14px 0;
+    gap: 8px;
+    margin: 10px 0;
   }
 
   .stat-card {
     background: var(--bg-alt);
     border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 10px 12px;
+    border-radius: 6px;
+    padding: 8px 10px;
     text-align: center;
   }
 
   .stat-card .num {
-    font-size: 20px;
+    font-size: 18px;
     font-weight: 800;
     color: var(--accent);
     letter-spacing: -0.02em;
   }
 
   .stat-card .lbl {
-    font-size: 11px;
+    font-size: 10px;
     color: var(--muted);
     text-transform: uppercase;
     font-weight: 600;
@@ -142,13 +182,13 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    margin: 10px 0 14px 0;
-    font-size: 11.5px;
+    margin: 8px 0 10px 0;
+    font-size: 11px;
     page-break-inside: avoid;
   }
 
   th, td {
-    padding: 7px 10px;
+    padding: 5px 8px;
     text-align: left;
     border: 1px solid var(--border);
   }
@@ -158,7 +198,7 @@
     color: var(--primary);
     font-weight: 700;
     text-transform: uppercase;
-    font-size: 10.5px;
+    font-size: 9.5px;
     letter-spacing: 0.03em;
   }
 
@@ -168,9 +208,9 @@
 
   .pill {
     display: inline-block;
-    padding: 2px 8px;
+    padding: 1px 6px;
     border-radius: 999px;
-    font-size: 10.5px;
+    font-size: 10px;
     font-weight: 700;
   }
 
@@ -188,7 +228,7 @@
 
   code, .mono {
     font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    font-size: 11px;
+    font-size: 10.5px;
     background: #f1f5f9;
     padding: 1px 4px;
     border-radius: 3px;
@@ -198,12 +238,13 @@
   pre {
     background: #0f172a;
     color: #f8fafc;
-    padding: 10px 14px;
+    padding: 8px 12px;
     border-radius: 6px;
-    font-size: 11px;
-    line-height: 1.45;
+    font-size: 10.5px;
+    line-height: 1.4;
     overflow-x: auto;
     page-break-inside: avoid;
+    margin: 8px 0;
   }
 
   pre code {
@@ -216,9 +257,13 @@
     page-break-before: always;
   }
 
+  .log-table th {
+    background: #e2e8f0;
+  }
+
   .qa-box {
-    margin-bottom: 12px;
-    padding: 10px 14px;
+    margin-bottom: 8px;
+    padding: 8px 12px;
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 6px;
@@ -228,13 +273,13 @@
   .qa-box strong.q {
     color: #1e3a8a;
     display: block;
-    margin-bottom: 4px;
-    font-size: 12px;
+    margin-bottom: 2px;
+    font-size: 11.5px;
   }
 
   .qa-box span.a {
     color: #334155;
-    font-size: 11.5px;
+    font-size: 11px;
     display: block;
   }
 </style>
@@ -244,26 +289,46 @@
 <div class="cover">
   <div class="title">Autonomous Code Validator (ACV)</div>
   <div class="subtitle">Deterministic Multi-Oracle Verification & Automated Repository Hardening</div>
+  
   <div class="meta-grid">
-    <div class="meta-item"><strong>Developer</strong>Jeevant</div>
-    <div class="meta-item"><strong>Execution Status</strong>Production Verified</div>
+    <div class="meta-item"><strong>Status</strong>Production Verified</div>
     <div class="meta-item"><strong>Benchmark Accuracy</strong>100% (20/20 Scenarios)</div>
-    <div class="meta-item"><strong>Date</strong>November 25, 2026</div>
+    <div class="meta-item"><strong>Rule F1 Score</strong>90.3% (96.6% Precision)</div>
+    <div class="meta-item"><strong>Evaluation Date</strong>November 25, 2026</div>
+  </div>
+
+  <div class="team-panel">
+    <div>
+      <strong>Student Research Team</strong>
+      <div class="team-list">
+        <div class="team-member">Jeevant <span>(UI23CS30)</span></div>
+        <div class="team-member">Abhishek Yadav <span>(UI23CS02)</span></div>
+        <div class="team-member">Deepesh Dangi <span>(UI23CS18)</span></div>
+      </div>
+    </div>
+    <div>
+      <strong>Supervision & Affiliation</strong>
+      <div>Under the guidance of: <strong>Dr. Lokendra Chouhan (Lokendra Sir)</strong></div>
+      <div style="color: var(--muted); font-size: 10.5px;">Department of CSE, Indian Institute of Information Technology Surat (IIIT Surat)</div>
+    </div>
   </div>
 </div>
 
-<h2>1. Executive Summary</h2>
+<h2>1. Executive Summary & Problem Statement</h2>
 <p>
-  Autonomous code generation tools (such as GitHub Copilot and LLM repair agents) suffer from a critical flaw: 
-  <strong>they cannot reliably judge the correctness or security of their own output</strong>. Code that appears syntactically 
-  clean often introduces subtle regressions, incomplete repairs (half-fixes), or severe runtime vulnerabilities.
+  Autonomous code generation agents (such as SWE-agent, OpenHands, and LLM coding assistants) suffer from a fundamental failure mode:
+  <strong>they cannot reliably judge the security or functional correctness of their own generated output</strong>. 
+  When tested against typical coding benchmarks, AI agents frequently engage in <em>specification gaming</em> or <em>reward hacking</em>—returning 
+  hardcoded dummy responses, disabling test assertions, or applying surface-level syntactic tweaks that pass narrow unit tests while leaving 
+  severe security vulnerabilities wide open.
 </p>
 <p>
-  The <strong>Autonomous Code Validator (ACV)</strong> eliminates reliance on model confidence by implementing an 
-  <strong>executable, multi-oracle verification gate</strong>. ACV runs candidate patches against real-world repositories 
-  cloned live from GitHub inside an isolated Linux kernel sandbox. A candidate patch is only approved if it simultaneously 
-  blocks the security exploit, preserves full functional behavior under the project's native test suite, introduces zero 
-  new AST security violations, and leaves protected testing infrastructure untouched.
+  The <strong>Autonomous Code Validator (ACV)</strong> solves this problem by replacing model confidence with an 
+  <strong>executable, multi-oracle verification pipeline</strong>. Candidate code is executed inside an isolated Linux kernel sandbox 
+  and evaluated across four mandatory gates: (1) Static AST Security Rules, (2) Exploit Invalidation (dynamic Proof-of-Concept execution), 
+  (3) Behavioral Regression Suite (native pytest assertions), and (4) Protected Testing Infrastructure Shields. 
+  Across 7 real-world production open-source repositories and 20 live scenarios, ACV achieved <strong>100% verdict accuracy</strong> with 
+  <strong>zero false accepts</strong> and <strong>zero false rejects</strong>.
 </p>
 
 <div class="cards-grid">
@@ -285,9 +350,100 @@
   </div>
 </div>
 
-<h2>2. Headline Metrics: Checker Qualification Benchmark</h2>
+<h2>2. Day-by-Day Practical Development & Engineering Log</h2>
 <p>
-  We benchmarked our custom AST-based security analysis engine (<code>acv-rules</code>) against standard static analysis 
+  The project was developed in iterative phases, transitioning from theoretical AST mutation to live multi-repository 
+  kernel containment and automated Git PR branch synthesis:
+</p>
+
+<table class="log-table">
+  <thead>
+    <tr>
+      <th style="width: 12%;">Day / Phase</th>
+      <th style="width: 25%;">Core Objective</th>
+      <th style="width: 38%;">Practical Implementation & Engineering Actions</th>
+      <th style="width: 25%;">Observed Challenges & Technical Solutions</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td><strong>Day 1</strong></td>
+      <td><strong>AST Mutation & Attack Loop</strong></td>
+      <td>
+        Constructed line-constrained AST mutation engine (<code>ast.NodeVisitor</code>). Implemented comparison 
+        inversion (<code>&gt;=</code> to <code>&gt;</code>), boolean flips, and return mutations limited strictly to lines touched by patches.
+      </td>
+      <td>
+        <em>Issue:</em> Whole-file syntax bleed corrupted unmodified helper functions.<br>
+        <em>Fix:</em> Bound mutator to unified git diff hunk boundaries.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Day 2</strong></td>
+      <td><strong>Sandbox & OS Containment</strong></td>
+      <td>
+        Built dynamic subprocess sandbox runner. Embedded Linux kernel <code>resource.setrlimit()</code> capping RAM at 768 MB, 
+        CPU at 30–60s, and file write limits at 16 MB.
+      </td>
+      <td>
+        <em>Issue:</em> Infinite loops in mutated code froze test runner and spawned zombie workers.<br>
+        <em>Fix:</em> <code>os.setsid()</code> session grouping with <code>os.killpg(SIGKILL)</code>.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Day 3</strong></td>
+      <td><strong>Dual-Execution Gate</strong></td>
+      <td>
+        Implemented the two-sided multi-oracle gate: Exploit Proof-of-Concept must fail (exit 1) AND regression suite must pass (exit 0). 
+        Enforced protected test file shield.
+      </td>
+      <td>
+        <em>Issue:</em> Flaky oracles rejecting valid human fixes.<br>
+        <em>Fix:</em> Ground-truth dual verification: gold patch must pass 100% before verifier qualifies.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Day 4</strong></td>
+      <td><strong>Checker Qualification</strong></td>
+      <td>
+        Developed <code>acv qualify</code> CLI. Benchmarked <code>acv-rules</code> against Bandit across 11 security vulnerability tasks 
+        representing 10 distinct CWE families.
+      </td>
+      <td>
+        <em>Result:</em> <code>acv-rules</code> achieved <strong>90.3% F1 score</strong> (vs 64.2% Bandit) and ran in <strong>62 ms</strong> (vs 10,279 ms).
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Day 5</strong></td>
+      <td><strong>7 Real Repos & Negative Control</strong></td>
+      <td>
+        Scaled ACV to live repositories (GitPython, Jinja2, PyYAML, Requests, urllib3, sqlparse, and Pallets Click clean control). 
+        Evaluated 20 executable scenarios.
+      </td>
+      <td>
+        <em>Issue:</em> ReDoS in sqlparse recursion.<br>
+        <em>Fix:</em> 3-way structured PoC verdict (<code>classify_poc</code>) with recursion depth traps.
+      </td>
+    </tr>
+    <tr>
+      <td><strong>Day 6</strong></td>
+      <td><strong>Hardening CLI & Web Console</strong></td>
+      <td>
+        Engineered <code>acv repo-harden</code> to generate reviewable Git branches (<code>acv/harden-&lt;task&gt;</code>) and automated PR markdown descriptions. 
+        Launched web dashboard daemon on port 8017.
+      </td>
+      <td>
+        <em>Result:</em> End-to-end automated pipeline: vulnerability detection &rarr; multi-oracle audit &rarr; verified PR branch.
+      </td>
+    </tr>
+  </tbody>
+</table>
+
+<div class="page-break"></div>
+
+<h2>3. Headline Metrics: Checker Qualification Benchmark (acv-rules vs Bandit)</h2>
+<p>
+  We benchmarked our AST-based security analysis engine (<code>acv-rules</code>) against industry-standard static analysis 
   tooling (<code>bandit</code>) across 11 security vulnerability tasks representing 10 distinct Common Weakness Enumeration (CWE) families.
 </p>
 
@@ -303,7 +459,7 @@
       <th style="text-align:right;">Precision</th>
       <th style="text-align:right;">Recall</th>
       <th style="text-align:right;">F1 Score</th>
-      <th style="text-align:right;">Runtime</th>
+      <th style="text-align:right;">Execution Runtime</th>
     </tr>
   </thead>
   <tbody>
@@ -340,7 +496,7 @@
   (missing 16 vulnerable samples).
 </div>
 
-<h2>3. Two-Sided Dynamic Execution Audit (44 Candidates)</h2>
+<h2>4. Two-Sided Dynamic Execution Audit (44 Candidates)</h2>
 <p>
   To prove that static analysis alone is insufficient, the ACV gate was evaluated dynamically across 44 candidate fixes 
   under active process containment.
@@ -383,9 +539,7 @@
   </tbody>
 </table>
 
-<div class="page-break"></div>
-
-<h2>4. Real-World Multi-Repository Benchmark (7 Codebases, 20 Scenarios)</h2>
+<h2>5. Real-World Multi-Repository Benchmark (7 Codebases, 20 Scenarios)</h2>
 <p>
   ACV was evaluated against <strong>7 real-world open-source repositories</strong> cloned live from GitHub at pinned release 
   commits. In total, the system inspected <strong>374 production source files (~119,610 lines of code)</strong>.
@@ -473,7 +627,9 @@
   patch bypassed the gate) and <strong>zero false rejections</strong> (the clean production repository passed immediately).
 </div>
 
-<h2>5. Negative Control: Proving Zero False Alarms on Clean Code</h2>
+<div class="page-break"></div>
+
+<h2>6. Negative Control: Proving Zero False Alarms on Clean Code</h2>
 <p>
   A critical failure mode of automated security gates is "alarm fatigue"—rejecting healthy code. To validate specificity, 
   we introduced <strong>Pallets Click (version 8.1.7)</strong> as a negative control:
@@ -483,7 +639,18 @@
   <li><strong>Injected Backdoor Mutant:</strong> When an adversarial subshell injection (<code>subprocess.Popen(..., shell=True)</code>) was injected, ACV's AST checker immediately detected the rule violation and flipped the verdict to <span class="pill pill-danger">REJECT</span>.</li>
 </ul>
 
-<h2>6. Terminal Commands for Live Demonstration</h2>
+<h2>7. System Architecture & Containment Guarantees</h2>
+<p>
+  ACV enforces containment through an unbypassable four-stage pipeline:
+</p>
+<ul>
+  <li><strong>Static Rule Oracle (acv-rules):</strong> Lightweight AST inspection detects known unsafe calls (<code>subprocess.Popen(..., shell=True)</code>, <code>yaml.load(Loader=Loader)</code>, unsafe regexes) in &lt;65 ms.</li>
+  <li><strong>Security Exploit Oracle:</strong> Executes the specific vulnerability Proof-of-Concept. The exploit must be completely neutralized (exit code 1 or safe exception).</li>
+  <li><strong>Behavioral Regression Oracle:</strong> Runs the repository's native <code>pytest</code> test suite. Guarantees the patch does not break existing application behavior (exit code 0).</li>
+  <li><strong>Linux Process Isolation:</strong> Uses <code>resource.setrlimit()</code> to strictly bound CPU and RAM, isolating worker processes in independent process sessions (<code>os.setsid</code>) to prevent fork bombs and hanging loops.</li>
+</ul>
+
+<h2>8. Terminal Commands for Live Demonstration</h2>
 <p>
   All experiments and audits run deterministically from the terminal inside <code>Autonomous_Code_Validator</code>:
 </p>
@@ -498,11 +665,12 @@ uv run acv audit
 uv run python scripts/benchmark_repos.py
 
 # 4. Synthesize a reviewable Git hardening branch & PR description:
-uv run acv repo-harden gitpython_cve_2022_24439 --diff my_fix.patch</code></pre>
+uv run acv repo-harden gitpython_cve_2022_24439 --diff my_fix.patch
 
-<div class="page-break"></div>
+# 5. Launch local real-time web dashboard:
+uv run acv serve --port 8017</code></pre>
 
-<h2>7. Oral Defense & Viva Cheat-Sheet (Answering Reviewer Questions)</h2>
+<h2>9. Oral Defense & Viva Cheat-Sheet (Answering Reviewer Questions)</h2>
 
 <div class="qa-box">
   <strong class="q">Q1: "Did you just build an AI wrapper or prompt ChatGPT?"</strong>
@@ -540,8 +708,8 @@ uv run acv repo-harden gitpython_cve_2022_24439 --diff my_fix.patch</code></pre>
 </div>
 
 <br>
-<p style="text-align:center; color: var(--muted); font-size: 11px; border-top: 1px solid var(--border); padding-top: 12px;">
-  Autonomous Code Validator (ACV) &middot; Official Project Evaluation Report &middot; Generated November 25, 2026
+<p style="text-align:center; color: var(--muted); font-size: 10.5px; border-top: 1px solid var(--border); padding-top: 8px;">
+  Autonomous Code Validator (ACV) &middot; Official Project Evaluation Report &middot; Department of CSE, IIIT Surat &middot; November 25, 2026
 </p>
 
 </body>
