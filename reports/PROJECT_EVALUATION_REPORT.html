@@ -6,13 +6,7 @@
 <style>
   @page {
     size: A4;
-    margin: 9mm 14mm 9mm 14mm;
-    @bottom-center {
-      content: "Autonomous Code Validator (ACV) · Dept of CSE, IIIT Surat · Page " counter(page) " of 3";
-      font-size: 8.5pt;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      color: #64748b;
-    }
+    margin: 11mm 15mm 11mm 15mm;
   }
 
   * { box-sizing: border-box; }
@@ -29,8 +23,8 @@
 
   .header-block {
     border-bottom: 2px solid #0f2b48;
-    padding-bottom: 10px;
-    margin-bottom: 12px;
+    padding-bottom: 8px;
+    margin-bottom: 10px;
   }
 
   .inst-title {
@@ -42,13 +36,13 @@
   }
 
   .inst-sub {
-    font-size: 9.5pt;
+    font-size: 9pt;
     color: #475569;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
   }
 
   .project-title {
-    font-size: 17pt;
+    font-size: 16.5pt;
     font-weight: 800;
     color: #0f2b48;
     line-height: 1.25;
@@ -56,10 +50,10 @@
   }
 
   .project-sub {
-    font-size: 10pt;
+    font-size: 9.5pt;
     color: #2563eb;
     font-weight: 600;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
   .meta-grid {
@@ -91,19 +85,19 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
-    margin: 10px 0;
+    margin: 8px 0;
   }
 
   .stat-card {
     background: #f1f5f9;
     border: 1px solid #cbd5e1;
     border-radius: 6px;
-    padding: 6px 8px;
+    padding: 5px 8px;
     text-align: center;
   }
 
   .stat-num {
-    font-size: 15pt;
+    font-size: 14.5pt;
     font-weight: 800;
     color: #0f2b48;
   }
@@ -117,26 +111,26 @@
   }
 
   h2 {
-    font-size: 11pt;
+    font-size: 10.5pt;
     font-weight: 700;
     color: #0f2b48;
     border-bottom: 1.5px solid #cbd5e1;
     padding-bottom: 2px;
-    margin: 7px 0 3px 0;
+    margin: 10px 0 4px 0;
     text-transform: uppercase;
     letter-spacing: 0.03em;
   }
 
   p {
-    margin: 0 0 6px 0;
+    margin: 0 0 5px 0;
     text-align: justify;
-    font-size: 9.8pt;
+    font-size: 9.6pt;
   }
 
   ul, ol {
-    margin: 0 0 6px 0;
+    margin: 0 0 5px 0;
     padding-left: 18px;
-    font-size: 9.8pt;
+    font-size: 9.6pt;
   }
 
   li { margin-bottom: 2px; }
@@ -145,7 +139,7 @@
     width: 100%;
     border-collapse: collapse;
     margin: 5px 0;
-    font-size: 9pt;
+    font-size: 8.8pt;
   }
 
   th, td {
@@ -158,7 +152,7 @@
     background: #f1f5f9;
     color: #0f2b48;
     font-weight: 700;
-    font-size: 8.5pt;
+    font-size: 8.2pt;
     text-transform: uppercase;
     letter-spacing: 0.02em;
   }
@@ -181,7 +175,7 @@
 
   code, pre {
     font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-    font-size: 8.2pt;
+    font-size: 8.6pt;
   }
 
   code {
@@ -194,15 +188,16 @@
   pre {
     background: #0f172a;
     color: #f8fafc;
+    padding: 6px 10px;
+    border-radius: 5px;
+    line-height: 1.35;
+    margin: 4px 0;
   }
+
   pre code {
     background: transparent !important;
     color: #f8fafc !important;
     padding: 0 !important;
-    padding: 4px 8px;
-    border-radius: 5px;
-    line-height: 1.25;
-    margin: 4px 0;
   }
 
   .page-break {
@@ -212,10 +207,10 @@
   .hardware-box {
     background: #eff6ff;
     border-left: 3.5px solid #2563eb;
-    padding: 4px 8px;
-    margin: 5px 0;
+    padding: 5px 9px;
+    margin: 6px 0;
     border-radius: 0 4px 4px 0;
-    font-size: 9.3pt;
+    font-size: 9pt;
   }
 </style>
 </head>
@@ -237,7 +232,7 @@
     </div>
     <div>
       <strong>Project Supervisor</strong>
-      <div style="font-weight: 700; color: #0f2b48;">Diksha Rangwani Ma'am</div>
+      <div style="font-weight: 700; color: #0f2b48;">Dr. Diksha Rangwani</div>
       <div style="font-size: 8.5pt; color: #64748b; margin-top: 2px;">Department of Computer Science &amp; Engineering</div>
     </div>
   </div>
@@ -246,7 +241,7 @@
 <div class="stats-grid">
   <div class="stat-card">
     <div class="stat-num">100%</div>
-    <div class="stat-lbl">7-Repo Gate Accuracy</div>
+    <div class="stat-lbl">Benchmark Gate Accuracy</div>
   </div>
   <div class="stat-card">
     <div class="stat-num">90.3%</div>
@@ -349,8 +344,8 @@
     </tr>
     <tr>
       <td><strong>Day 5</strong></td>
-      <td><strong>7-Repository Scaling</strong></td>
-      <td>Live git clone &amp; dynamic execution across 7 open-source repositories and 20 scenarios. Added Pallets Click as negative control.</td>
+      <td><strong>Multi-Task Benchmark &amp; Negative Control</strong></td>
+      <td>Live git clone &amp; dynamic execution across curated CVE benchmark tasks and 20 scenarios. Added Pallets Click as negative control.</td>
       <td><strong>Issue:</strong> ReDoS in sqlparse recursion.<br><strong>Fix:</strong> 3-way structured PoC classifier.</td>
     </tr>
     <tr>
@@ -365,15 +360,15 @@
 <!-- ================= PAGE 3 ================= -->
 <div class="page-break"></div>
 
-<h2>5. Empirical Results Across 7 Production Repositories (20 Live Scenarios)</h2>
+<h2>5. Empirical Verification Results on CVE Benchmark Tasks (20 Scenarios)</h2>
 <p>
-  ACV was evaluated against <strong>7 real-world open-source repositories</strong> cloned live from GitHub at pinned release tags. In total, the system audited <strong>374 production source files (~119,610 lines of code)</strong> across 20 executable scenarios:
+  ACV was evaluated against real-world vulnerability tasks cloned live from GitHub at pinned release tags. In total, the system audited <strong>374 production source files (~119,610 lines of code)</strong> across 20 executable scenarios:
 </p>
 
 <table>
   <thead>
     <tr>
-      <th>Target Repository</th>
+      <th>Target Benchmark Task</th>
       <th>Vulnerability / CWE</th>
       <th>Scale (Files / LOC)</th>
       <th>Evaluated Scenarios</th>
@@ -504,7 +499,7 @@ Engine: acv-rules | F1: 90.3% | Precision: 96.6% | Recall: 84.8% | Runtime: 62 m
 $ uv run acv audit
 Candidates: 44 | Accepted Gold: 11/11 | Rejected Mutants: 21/22 | Accuracy: 95.5%
 
-# 3. Execute 7-repository benchmark suite (20 live scenarios):
+# 3. Execute benchmark suite across 20 live scenarios:
 $ uv run python scripts/benchmark_repos.py
 Scenarios: 20/20 Passed (100% Accuracy) | False Accepts: 0 | False Rejects: 0
 
@@ -515,10 +510,6 @@ Created branch 'acv/harden-gitpython_cve_2022_24439' with verified pull_request.
 <p>
   <strong>Conclusion:</strong> The Autonomous Code Validator replaces ungrounded AI confidence with deterministic verification. By pairing quantized open models (DeepSeek, Kimi k3) on C-DAC 48GB VRAM nodes with Linux-contained multi-oracle execution, ACV eliminates specification gaming and reliably hardens production codebases.
 </p>
-
-<div style="font-size: 8.5pt; color: #64748b; border-top: 1px solid #cbd5e1; padding-top: 2px; margin-top: 4px; text-align: center;">
-  Autonomous Code Validator (ACV) &middot; Department of Computer Science &amp; Engineering, IIIT Surat &middot; November 2026
-</div>
 
 </body>
 </html>
